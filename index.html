@@ -328,6 +328,107 @@ function exportDetail(){
 
 
 
+
+/* ===== OVERRIDE ROBUSTO DE COLUMNAS/FILTROS ===== */
+function normKey2(s){
+  return String(s||'')
+    .replace(/^\uFEFF/, '')
+    .trim()
+    .toLowerCase()
+    .normalize('NFD').replace(/[\u0300-\u036f]/g,'')
+    .replace(/[¿?]/g,'')
+    .replace(/[_\-./]+/g,' ')
+    .replace(/\s+/g,' ');
+}
+function firstByCandidates(row, candidates){
+  const keys = Object.keys(row || {});
+  const normMap = {};
+  keys.forEach(k => normMap[normKey2(k)] = row[k]);
+
+  for(const c of candidates){
+    const v = normMap[normKey2(c)];
+    if(v !== undefined && v !== null && String(v).trim() !== '') return v;
+  }
+
+  for(const k of keys){
+    const nk = normKey2(k);
+    for(const c of candidates){
+      const nc = normKey2(c);
+      if(nk.includes(nc) || nc.includes(nk)){
+        const v = row[k];
+        if(v !== undefined && v !== null && String(v).trim() !== '') return v;
+      }
+    }
+  }
+  return '';
+}
+function toNumber2(x){
+  if(x === null || x === undefined || x === '') return 0;
+  if(typeof x === 'number') return x;
+  let s = String(x).trim().replace(/S\/|\s/g,'');
+  if(s.includes(',') && s.includes('.')){
+    s = s.replace(/\./g,'').replace(',', '.');
+  }else if(s.includes(',') && !s.includes('.')){
+    s = s.replace(',', '.');
+  }
+  s = s.replace(/[^0-9.\-]/g,'');
+  const n = parseFloat(s);
+  return isNaN(n) ? 0 : n;
+}
+function mapRow(r){
+  const vendedor = String(firstByCandidates(r, ['Vendedor','Cod Vendedor','Codigo Vendedor','Código Vendedor','FuerzaVentas','Fuerza Ventas','FV','CodVend','COD VEND']) || '').trim();
+  const cliente = String(firstByCandidates(r, ['Cliente','Codigo Cliente','Código Cliente','Cod Cliente','ClienteCodigo','Cliente Codigo','Cod Cte','Código Cte','COD CLIENTE','Cliente Cod']) || '').trim();
+  const nombre = String(firstByCandidates(r, ['Nombre Cliente','Cliente Nombre','Razon Social','Razón Social','Nombre','NOMBRE','Cliente']) || '').trim();
+  const dia = String(firstByCandidates(r, ['DiaDeSemana','Dia de Semana','Día de Semana','Dia','Día','DIA','DIA SEMANA']) || '').trim();
+  const grupo = String(firstByCandidates(r, ['grupoventas','GrupoVentas','Grupo Ventas','Grupo','Supervisor','SUPERVISOR','Jefe','Mesa','MESA','Jefe Ventas']) || '').trim();
+  const sede = String(firstByCandidates(r, ['SUCURSAL','Sucursal','sucursal','Sede','SEDE','Local','Centro']) || '').trim();
+
+  const cuota = toNumber2(firstByCandidates(r, ['CUOTA REBATE','Cuota Rebate','Cuota','Plan','Cuota Reb','OBJETIVO']));
+  const avance = toNumber2(firstByCandidates(r, ['AV REBATE','Av Rebate','Avance Rebate','Avance','Venta','Venta Rebate']));
+  const gap = toNumber2(firstByCandidates(r, ['FALTA REBATE','Falta Rebate','Gap','Faltante','Falta']));
+  let pct = toNumber2(firstByCandidates(r, ['%AVANCE','% Avance','Porcentaje avance','Pct Avance','Avance %']));
+  if(pct > 3) pct = pct / 100;
+  if(!pct && cuota) pct = avance / cuota;
+
+  const usoRaw = String(firstByCandidates(r, ['¿Usó la V?','Uso la V?','Usó la V?','Uso V','USO V','Uso Beneficio','Uso']) || 'NO').trim().toUpperCase();
+  const pvta = toNumber2(firstByCandidates(r, ['PVTA','pvta','Pvta','Preventa','PREVENTA','Preventa Hoy','PREVENTA HOY','Pre Venta']));
+
+  return {
+    vendedor, cliente, nombre, dia, grupo, sede,
+    uso_v: usoRaw.startsWith('S') ? 'SI' : 'NO',
+    cuota, avance, gap, pct, pvta
+  };
+}
+function uniq(arr){
+  const vals = Array.from(new Set((arr||[]).map(x=>String(x||'').trim()).filter(Boolean))).sort((a,b)=>a.localeCompare(b,'es'));
+  return ['Todos', ...vals];
+}
+function fill(id, arr, preserve=true){
+  const el = document.getElementById(id);
+  if(!el) return;
+  const cur = preserve ? (el.value || 'Todos') : 'Todos';
+  const vals = uniq(arr);
+  el.innerHTML = vals.map(x=>'<option value="'+String(x).replaceAll('"','&quot;')+'">'+x+'</option>').join('');
+  el.value = vals.includes(cur) ? cur : 'Todos';
+  if(!el.value && vals.length) el.value = vals[0];
+}
+function refreshCascadingFilters(changed){
+  if(!changed || changed==='init') fill('fSede', DATA.map(x=>x.sede), true);
+
+  const sedeVal = document.getElementById('fSede')?.value || 'Todos';
+  const baseGrupo = DATA.filter(x => sedeVal==='Todos' || x.sede===sedeVal);
+  fill('fGrupo', baseGrupo.map(x=>x.grupo), changed!=='sede');
+
+  const grupoVal = document.getElementById('fGrupo')?.value || 'Todos';
+  const baseVend = baseGrupo.filter(x => grupoVal==='Todos' || x.grupo===grupoVal);
+  fill('fVend', baseVend.map(x=>x.vendedor), changed!=='sede' && changed!=='grupo');
+
+  const vendVal = document.getElementById('fVend')?.value || 'Todos';
+  const baseDia = baseVend.filter(x => vendVal==='Todos' || x.vendedor===vendVal);
+  fill('fDia', baseDia.map(x=>x.dia), changed!=='sede' && changed!=='grupo' && changed!=='vend');
+}
+/* ===== FIN OVERRIDE ROBUSTO ===== */
+
 async function cargarDatosAutomatico(){
   const setStatus = (txt, cls='') => {
     const el = document.getElementById('autoLoadStatus');
@@ -360,6 +461,15 @@ async function cargarDatosAutomatico(){
     console.log('Columnas CSV detectadas:', fields);
 
     DATA = parsed.data.map(mapRow).filter(x => x.cliente || x.nombre);
+    console.log('Muestra mapeada:', DATA.slice(0,3));
+    const dimOk = DATA.some(x => x.sede || x.grupo || x.vendedor || x.dia);
+    if(!dimOk){
+      const fields = parsed.meta && parsed.meta.fields ? parsed.meta.fields : Object.keys(parsed.data[0] || {});
+      const msg = 'Se cargaron filas, pero las columnas de filtros están vacías. Columnas detectadas: ' + fields.slice(0,15).join(' | ');
+      console.warn(msg);
+      const el = document.getElementById('autoLoadStatus');
+      if(el) el.textContent = msg;
+    }
 
     if(!DATA.length){
       const msg = 'CSV leído, pero no se encontraron clientes. Columnas detectadas: ' + fields.slice(0,12).join(' | ');
