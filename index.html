@@ -226,11 +226,34 @@ function pick(row,list){let map={}; Object.keys(row).forEach(k=>map[norm(k)]=row
 function num(x){
  if(x===null||x===undefined||x==='')return 0;
  if(typeof x==='number')return x;
- let s=String(x).trim().replace(/S\/|\s/g,'');
- if(s.includes(',')&&s.includes('.')) s=s.replace(/\./g,'').replace(',', '.');
- else if(s.includes(',')&&!s.includes('.')) s=s.replace(',', '.');
- s=s.replace(/[^0-9.\-]/g,'');
- let n=parseFloat(s);return isNaN(n)?0:n;
+ let s=String(x).trim().replace(/S\/|USD|\s/g,'');
+ s=s.replace(/[^\d,.\-]/g,'');
+ if(s===''||s==='-' )return 0;
+
+ const hasComma=s.includes(',');
+ const hasDot=s.includes('.');
+
+ if(hasComma && hasDot){
+   const lastComma=s.lastIndexOf(',');
+   const lastDot=s.lastIndexOf('.');
+   if(lastComma>lastDot){
+     s=s.replace(/\./g,'').replace(',', '.');
+   }else{
+     s=s.replace(/,/g,'');
+   }
+ }else if(hasDot || hasComma){
+   const sep=hasDot?'.':',';
+   const idx=s.lastIndexOf(sep);
+   const before=s.slice(0,idx).replace(/[^\d\-]/g,'');
+   const after=s.slice(idx+1).replace(/\D/g,'');
+   if(after.length===3 && before.replace('-','').length>=1 && before.replace('-','').length<=3){
+     s=before+after;
+   }else{
+     s=before+'.'+after;
+   }
+ }
+ let n=parseFloat(s);
+ return isNaN(n)?0:n;
 }
 
 function usoVReal(raw){
@@ -271,8 +294,34 @@ function llegoConPreventa(x){return (Number(x.avance||0)+pvtaDetalle(x))>=Number
 function estadoDetalle(x){return llegoConPreventa(x)?'llego':classify(x).replaceAll('_',' ');}
 function estadoBadgeClass(x){return llegoConPreventa(x)?'b-green':(classify(x)==='ganado_no_usado'?'b-red':classify(x)==='ganado_usado'?'b-green':classify(x)==='cerca'?'b-orange':'b-blue');}
 function pvtaPct(suf,pvta){return suf>0 ? Math.min(1, pvta/suf) : 0;}
-function classify(x){let b=nearBounds();let llego=x.pct>=1||x.gap<=0||x.avance>=x.cuota;if(llego&&!x.uso_v)return 'ganado_no_usado';if(llego&&x.uso_v)return 'ganado_usado';if(!llego&&x.pct>=b.mn&&x.pct<=b.mx)return 'cerca';return 'lejos';}
-function classifyRow(r){let b=nearBounds();let llego=r.pct>=1||r.gap<=0||r.avance>=r.cuota;if(llego&&r.uso_v==='NO')return 'ganado_no_usado';if(llego&&r.uso_v==='SI')return 'ganado_usado';if(!llego&&r.pct>=b.mn&&r.pct<=b.mx)return 'cerca';return 'lejos';}
+function llegoPlan(x){
+ const cuota=Number(x.cuota||0);
+ const avance=Number(x.avance||0);
+ const pctv=Number(x.pct||0);
+ if(cuota<=0)return false;
+ return pctv>=1 || avance>=cuota;
+}
+function usoBool(x){
+ return x===true || x==='SI' || String(x||'').toUpperCase()==='SI';
+}
+function classify(x){
+ let b=nearBounds();
+ let llego=llegoPlan(x);
+ let uso=usoBool(x.uso_v);
+ if(llego&&!uso)return 'ganado_no_usado';
+ if(llego&&uso)return 'ganado_usado';
+ if(!llego&&x.pct>=b.mn&&x.pct<=b.mx)return 'cerca';
+ return 'lejos';
+}
+function classifyRow(r){
+ let b=nearBounds();
+ let llego=llegoPlan(r);
+ let uso=usoBool(r.uso_v);
+ if(llego&&!uso)return 'ganado_no_usado';
+ if(llego&&uso)return 'ganado_usado';
+ if(!llego&&r.pct>=b.mn&&r.pct<=b.mx)return 'cerca';
+ return 'lejos';
+}
 
 
 function quotaBounds(){
@@ -316,7 +365,11 @@ function buildClients(rows){
  let m=new Map();
  rows.forEach(r=>{let key=r.cliente||(r.nombre+'|'+r.sede);if(!m.has(key))m.set(key,{cliente:r.cliente,nombre:r.nombre,sede:r.sede,grupo:new Set(),vendedor:new Set(),dia:new Set(),cuota:0,avance:0,gap:999999999,pct:0,uso_v:false,pvta:0,visitas:0});
  let x=m.get(key);x.grupo.add(r.grupo);x.vendedor.add(r.vendedor);x.dia.add(r.dia);x.cuota=Math.max(x.cuota,r.cuota);x.avance=Math.max(x.avance,r.avance);x.gap=Math.min(x.gap,r.gap);x.pct=Math.max(x.pct,r.pct);x.uso_v=x.uso_v||r.uso_v==='SI';x.pvta=Math.max(x.pvta,Number(r.pvta||0));x.visitas++;});
- return Array.from(m.values()).map(x=>({...x,grupo:[...x.grupo].filter(Boolean).join(', '),vendedor:[...x.vendedor].filter(Boolean).join(', '),dia:[...x.dia].filter(Boolean).join(', '),gap:x.gap===999999999?0:x.gap}));
+ return Array.from(m.values()).map(x=>{
+  const gapCalc=Math.max(0,Number(x.cuota||0)-Number(x.avance||0));
+  const pctCalc=Number(x.cuota||0)>0 ? Number(x.avance||0)/Number(x.cuota||0) : 0;
+  return {...x,grupo:[...x.grupo].filter(Boolean).join(', '),vendedor:[...x.vendedor].filter(Boolean).join(', '),dia:[...x.dia].filter(Boolean).join(', '),gap:gapCalc,pct:Math.max(Number(x.pct||0),pctCalc)};
+ });
 }
 function buildClientsFromRows(rows){return rows.map(r=>({cliente:r.cliente,nombre:r.nombre,sede:r.sede,grupo:r.grupo,vendedor:r.vendedor,dia:r.dia,cuota:r.cuota,avance:r.avance,gap:r.gap,pct:r.pct,uso_v:r.uso_v==='SI',pvta:r.pvta,visitas:1}));}
 function emptyAgg(name){return {name:name,total:0,opp:0,used:0,cerca:0,lejos:0,suf:0,sufCerca:0,sufLejos:0,pvta:0,pvtaCerca:0,pvtaLejos:0,neto:0,netoCerca:0,netoLejos:0};}
