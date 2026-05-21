@@ -341,33 +341,43 @@ async function cargarDatosAutomatico(){
 
     const text = await res.text();
 
-    Papa.parse(text, {
+    let parsed = Papa.parse(text, {
       header:true,
       skipEmptyLines:true,
       dynamicTyping:false,
-      worker:true,
-      complete:function(results){
-        DATA = results.data.map(mapRow).filter(x => x.cliente || x.nombre);
-        if(!DATA.length){
-          alert('El CSV se leyó, pero no se encontraron datos válidos. Revisa columnas.');
-          setStatus('CSV leído, pero sin datos válidos.', 'loadingBad');
-          return;
-        }
-        ACTIVE_SUPERVISOR='Todos';
-        ACTIVE_VENDOR='Todos';
-        cargarDatosAutomatico();
-        setStatus('Datos actualizados desde reembolsos.csv: ' + DATA.length.toLocaleString('es-PE') + ' filas', 'loadingOk');
-      },
-      error:function(err){
-        console.error(err);
-        alert('No se pudo leer reembolsos.csv.');
-        setStatus('No se pudo leer reembolsos.csv.', 'loadingBad');
-      }
+      delimitersToGuess:[',',';','\t','|']
     });
+
+    if(parsed.meta && parsed.meta.fields && parsed.meta.fields.length <= 1){
+      parsed = Papa.parse(text, {header:true, skipEmptyLines:true, dynamicTyping:false, delimiter:';'});
+    }
+
+    if(!parsed.data || !parsed.data.length){
+      throw new Error('CSV vacío o no reconocido.');
+    }
+
+    const fields = parsed.meta && parsed.meta.fields ? parsed.meta.fields : Object.keys(parsed.data[0] || {});
+    console.log('Columnas CSV detectadas:', fields);
+
+    DATA = parsed.data.map(mapRow).filter(x => x.cliente || x.nombre);
+
+    if(!DATA.length){
+      const msg = 'CSV leído, pero no se encontraron clientes. Columnas detectadas: ' + fields.slice(0,12).join(' | ');
+      console.error(msg);
+      setStatus(msg, 'loadingBad');
+      alert(msg);
+      return;
+    }
+
+    ACTIVE_SUPERVISOR='Todos';
+    ACTIVE_VENDOR='Todos';
+    cargarDatosAutomatico();
+
+    setStatus('Datos actualizados desde reembolsos.csv: ' + DATA.length.toLocaleString('es-PE') + ' filas', 'loadingOk');
   }catch(e){
     console.error(e);
-    alert('No se pudo cargar reembolsos.csv automáticamente. Revisa que el archivo esté en GitHub con ese nombre exacto.');
-    setStatus('No se pudo cargar reembolsos.csv.', 'loadingBad');
+    setStatus('No se pudo cargar reembolsos.csv: ' + e.message, 'loadingBad');
+    alert('No se pudo cargar reembolsos.csv: ' + e.message);
   }
 }
 
