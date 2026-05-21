@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Dashboard Rebates</title>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
 <style>
 :root{--bg:#eef4ff;--card:#fff;--ink:#172033;--muted:#697386;--line:#d9e2f2;--blue:#1d4ed8}
 *{box-sizing:border-box}
@@ -46,6 +47,10 @@ tr:hover td{background:#eaf2ff!important}
 .row-selected td{background:#cffafe!important;font-weight:800}
 .selected-filter,.selected-vendor{display:inline-block;margin:0 6px 8px 0;padding:5px 10px;border-radius:999px;background:#ecfeff;color:#155e75;font-size:11px;font-weight:800}
 @media(max-width:1120px){.kpis{grid-template-columns:repeat(2,1fr)}.grid{grid-template-columns:1fr}.filters{grid-template-columns:repeat(2,1fr)}.upload,.nearbox,.quotabox{grid-template-columns:1fr}}
+
+.loadingOk{color:#166534;font-weight:800}
+.loadingBad{color:#991b1b;font-weight:800}
+
 </style>
 </head>
 <body>
@@ -53,18 +58,18 @@ tr:hover td{background:#eaf2ff!important}
   <div class="header">
     <div>
       <h1>Dashboard Rebates - Maximizar Inversión</h1>
-      <div class="sub">Suficiencia separada para clientes cerca y lejos. PVTA mide cuánto cubre del gap. Los datos se cargan automáticamente desde reembolsos.xlsx.</div>
+      <div class="sub">Suficiencia separada para clientes cerca y lejos. PVTA mide cuánto se cubre del gap. Incluye filtro por rango de cuota.</div>
     </div>
     <button class="btn2" onclick="resetFilters()">Limpiar filtros</button>
   </div>
 
   <div class="card" style="margin-bottom:14px">
     <h2 style="margin:0 0 6px 0">📡 Datos automáticos</h2>
-    <div id="autoLoadStatus" class="note">El dashboard cargará automáticamente el archivo reembolsos.xlsx publicado en este repositorio.</div>
+    <div id="autoLoadStatus" class="note">Cargando datos desde reembolsos.csv...</div>
   </div>
 
   <div class="upload card">
-    <div><h2>📂 Cargar archivo Excel</h2><div class="note">Carga automática desde reembolsos.xlsx. También puedes cargar un Excel manualmente como respaldo.</div></div>
+    <div><h2>📂 Cargar archivo Excel</h2><div class="note">Modo móvil: lee reembolsos.csv para evitar que el celular se cuelgue.</div></div>
     <input type="file" id="excelFile" accept=".xlsx,.xls">
   </div>
 
@@ -170,7 +175,7 @@ function refreshCascadingFilters(changed){
  let baseDia=baseVend.filter(x=>fVend.value==='Todos'||x.vendedor===fVend.value);
  fill('fDia',baseDia.map(x=>x.dia),changed!=='sede'&&changed!=='grupo'&&changed!=='vend');
 }
-function resetFilters(){['fSede','fGrupo','fVend','fDia'].forEach(id=>document.getElementById(id).value='Todos');fSearch.value='';nearMin.value=80;nearMax.value=99;quotaMin.value='';quotaMax.value='';ACTIVE_SUPERVISOR='Todos';ACTIVE_VENDOR='Todos';cargarExcelAutomatico();}
+function resetFilters(){['fSede','fGrupo','fVend','fDia'].forEach(id=>document.getElementById(id).value='Todos');fSearch.value='';nearMin.value=80;nearMax.value=99;quotaMin.value='';quotaMax.value='';ACTIVE_SUPERVISOR='Todos';ACTIVE_VENDOR='Todos';cargarDatosAutomatico();}
 function getFilteredRows(){
  let sede=fSede.value,grupo=fGrupo.value,vend=fVend.value,dia=fDia.value,q=fSearch.value.toLowerCase().trim(),qb=quotaBounds();
  return DATA.filter(x=>(sede==='Todos'||x.sede===sede)&&(grupo==='Todos'||x.grupo===grupo)&&(vend==='Todos'||x.vendedor===vend)&&(dia==='Todos'||x.dia===dia)&&(Number(x.cuota||0)>=qb.mn&&Number(x.cuota||0)<=qb.mx)&&(!q||String(x.cliente).toLowerCase().includes(q)||String(x.nombre).toLowerCase().includes(q)));
@@ -242,42 +247,58 @@ function exportDetail(){
  const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,'Detalle');XLSX.writeFile(wb,'detalle_rebates.xlsx');
 }
 
-async function cargarExcelAutomatico(){
-  const statusId = 'autoLoadStatus';
-  const setStatus = (txt) => {
-    const el = document.getElementById(statusId);
-    if(el) el.textContent = txt;
+async function cargarDatosAutomatico(){
+  const setStatus = (txt, cls='') => {
+    const el = document.getElementById('autoLoadStatus');
+    if(el){ el.textContent = txt; el.className = 'note ' + cls; }
   };
 
   try{
-    setStatus('Cargando datos desde reembolsos.xlsx...');
-    const url = 'reembolsos.xlsx?v=' + Date.now();
+    setStatus('Cargando datos desde reembolsos.csv...');
+    const url = 'reembolsos.csv?v=' + Date.now();
     const res = await fetch(url, {cache:'no-store'});
     if(!res.ok){
-      throw new Error('No se encontró reembolsos.xlsx. Código: ' + res.status);
+      throw new Error('No se encontró reembolsos.csv. Código: ' + res.status);
     }
 
-    const buf = await res.arrayBuffer();
-    const wb = XLSX.read(buf, {type:'array'});
-    const ws = wb.Sheets[wb.SheetNames[0]];
-    const raw = XLSX.utils.sheet_to_json(ws, {defval:''});
+    const text = await res.text();
 
-    DATA = raw.map(mapRow).filter(x => x.cliente || x.nombre);
+    Papa.parse(text, {
+      header: true,
+      skipEmptyLines: true,
+      dynamicTyping: false,
+      worker: true,
+      complete: function(results){
+        try{
+          DATA = results.data.map(mapRow).filter(x => x.cliente || x.nombre);
 
-    if(!DATA.length){
-      throw new Error('El Excel se leyó, pero no se encontraron datos válidos. Revisa columnas.');
-    }
+          if(!DATA.length){
+            throw new Error('El CSV se leyó, pero no se encontraron datos válidos.');
+          }
 
-    ACTIVE_SUPERVISOR='Todos';
-    ACTIVE_VENDOR='Todos';
-    refreshCascadingFilters('init');
-    render();
+          ACTIVE_SUPERVISOR = 'Todos';
+          ACTIVE_VENDOR = 'Todos';
+          refreshCascadingFilters('init');
+          render();
 
-    setStatus('Datos actualizados desde reembolsos.xlsx: ' + DATA.length.toLocaleString('es-PE') + ' filas');
+          setStatus('Datos actualizados desde reembolsos.csv: ' + DATA.length.toLocaleString('es-PE') + ' filas', 'loadingOk');
+        }catch(err){
+          console.error(err);
+          setStatus('Error procesando el CSV. Revisa columnas y formato.', 'loadingBad');
+          alert('Error procesando reembolsos.csv. Revisa columnas y formato.');
+        }
+      },
+      error: function(err){
+        console.error(err);
+        setStatus('No se pudo leer reembolsos.csv.', 'loadingBad');
+        alert('No se pudo leer reembolsos.csv.');
+      }
+    });
+
   }catch(err){
     console.error(err);
-    setStatus('No se pudo cargar reembolsos.xlsx automáticamente. Revisa que el archivo esté en GitHub con ese nombre exacto.');
-    alert('No se pudo cargar reembolsos.xlsx automáticamente. Revisa que el archivo esté en GitHub con ese nombre exacto.');
+    setStatus('No se pudo cargar reembolsos.csv. Sube el archivo con ese nombre exacto.', 'loadingBad');
+    alert('No se pudo cargar reembolsos.csv. Sube el archivo con ese nombre exacto.');
   }
 }
 
@@ -286,7 +307,7 @@ fSede.addEventListener('change',()=>{ACTIVE_SUPERVISOR='Todos';ACTIVE_VENDOR='To
 fGrupo.addEventListener('change',()=>{ACTIVE_SUPERVISOR='Todos';ACTIVE_VENDOR='Todos';refreshCascadingFilters('grupo');render()});
 fVend.addEventListener('change',()=>{ACTIVE_VENDOR='Todos';refreshCascadingFilters('vend');render()});
 fDia.addEventListener('change',render);fSearch.addEventListener('input',render);nearMin.addEventListener('input',render);nearMax.addEventListener('input',render);quotaMin.addEventListener('input',render);quotaMax.addEventListener('input',render);
-cargarExcelAutomatico();
+cargarDatosAutomatico();
 </script>
 </body>
 </html>
