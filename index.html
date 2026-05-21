@@ -51,21 +51,247 @@ tr:hover td{background:#eaf2ff!important}
 .loadingOk{color:#166534;font-weight:800}
 .loadingBad{color:#991b1b;font-weight:800}
 
+
+/* ===== AJUSTE MOBILE SUPERVISORES ===== */
+html{scroll-behavior:smooth}
+body{
+  -webkit-text-size-adjust:100%;
+  background:#f4f7fb!important;
+}
+.wrap{
+  width:100%;
+  max-width:1500px;
+  padding:14px;
+}
+.header{
+  position:sticky;
+  top:0;
+  z-index:20;
+  background:linear-gradient(180deg,#f4f7fb 70%,rgba(244,247,251,.92) 100%);
+  padding:8px 0 10px 0;
+  border-bottom:1px solid rgba(217,226,242,.7);
+}
+.header h1{
+  font-size:22px;
+  line-height:1.12;
+}
+.header .sub{
+  font-size:12px;
+  max-width:820px;
+}
+.card{
+  border-radius:18px!important;
+}
+.filters.card,
+.nearbox.card,
+.quotabox.card{
+  position:relative;
+}
+.filters{
+  grid-template-columns:repeat(5,minmax(150px,1fr))!important;
+  overflow-x:auto;
+  padding-bottom:10px;
+  -webkit-overflow-scrolling:touch;
+}
+.filters .filter{
+  min-width:150px;
+}
+.nearbox,
+.quotabox{
+  grid-template-columns:repeat(3,minmax(150px,1fr))!important;
+  overflow-x:auto;
+  padding-bottom:10px;
+  -webkit-overflow-scrolling:touch;
+}
+input,select,button{
+  font-size:15px!important;
+  min-height:42px;
+}
+.kpis{
+  grid-template-columns:repeat(5,minmax(190px,1fr))!important;
+  overflow-x:auto;
+  padding-bottom:10px;
+  -webkit-overflow-scrolling:touch;
+  scroll-snap-type:x mandatory;
+}
+.kpi{
+  min-width:190px;
+  scroll-snap-align:start;
+  min-height:135px!important;
+}
+.kpi .title{
+  font-size:11px!important;
+}
+.kpi .value{
+  font-size:30px!important;
+}
+.kpi .hint{
+  font-size:11px!important;
+}
+.submetric{
+  white-space:normal;
+  line-height:1.25;
+}
+.grid{
+  grid-template-columns:1fr!important;
+}
+.grid>.card{
+  min-width:0;
+}
+.tablewrap{
+  max-height:58vh!important;
+  overflow:auto;
+  -webkit-overflow-scrolling:touch;
+  border-radius:16px!important;
+}
+table{
+  min-width:980px;
+}
+th,td{
+  padding:10px 9px!important;
+  font-size:12px!important;
+}
+th{
+  top:0;
+}
+#detailTable table{
+  min-width:1180px;
+}
+.actionbar{
+  align-items:stretch!important;
+}
+.actionbar .btn,
+.actionbar button{
+  width:100%;
+}
+.btn,.btn2{
+  min-height:42px;
+}
+.selected-filter,.selected-vendor{
+  display:inline-flex!important;
+  align-items:center;
+  min-height:28px;
+}
+#autoLoadStatus{
+  font-size:13px;
+}
+@media(max-width:760px){
+  .wrap{padding:10px}
+  .header{
+    display:block!important;
+    margin-bottom:10px;
+  }
+  .header h1{
+    font-size:20px!important;
+    margin-bottom:4px!important;
+  }
+  .header .sub{
+    font-size:11.5px!important;
+  }
+  .header .btn2{
+    width:100%;
+    margin-top:8px;
+  }
+  .upload{
+    grid-template-columns:1fr!important;
+  }
+  .upload input[type=file]{
+    font-size:13px!important;
+  }
+  h2{
+    font-size:16px!important;
+  }
+  .card{
+    padding:12px!important;
+    border-radius:16px!important;
+  }
+  .filters{
+    display:grid!important;
+    grid-template-columns:repeat(2,minmax(155px,1fr))!important;
+    overflow-x:visible;
+  }
+  .filters .filter{
+    min-width:0;
+  }
+  .nearbox,.quotabox{
+    grid-template-columns:1fr 1fr!important;
+    overflow-x:visible;
+  }
+  .nearbox .nearhint,
+  .quotabox .nearhint{
+    grid-column:1/-1;
+  }
+  .kpis{
+    display:grid!important;
+    grid-template-columns:1fr 1fr!important;
+    overflow-x:visible;
+    gap:10px!important;
+  }
+  .kpi{
+    min-width:0;
+    min-height:132px!important;
+    padding:12px!important;
+  }
+  .kpi .value{
+    font-size:26px!important;
+  }
+  .kpi .hint{
+    display:none;
+  }
+  .submetric{
+    font-size:10.5px!important;
+    padding:4px 6px!important;
+  }
+  .tablewrap{
+    max-height:62vh!important;
+  }
+  table{
+    min-width:1050px;
+  }
+  #detailTable table{
+    min-width:1250px;
+  }
+  th,td{
+    padding:9px 8px!important;
+  }
+  .note,.nearhint{
+    font-size:11.5px!important;
+  }
+}
+@media(max-width:430px){
+  .filters{
+    grid-template-columns:1fr!important;
+  }
+  .nearbox,.quotabox{
+    grid-template-columns:1fr!important;
+  }
+  .kpis{
+    grid-template-columns:1fr!important;
+  }
+  .kpi{
+    min-height:auto!important;
+  }
+  .kpi .hint{
+    display:block;
+  }
+}
+/* ===== FIN AJUSTE MOBILE SUPERVISORES ===== */
+
 </style>
 </head>
 <body>
 <div class="wrap">
   <div class="header">
     <div>
-      <h1>Dashboard Rebates - Maximizar Inversión</h1>
-      <div class="sub">Suficiencia separada para clientes cerca y lejos. PVTA mide cuánto se cubre del gap. Incluye filtro por rango de cuota.</div>
+      <h1>Dashboard Rebates - Supervisor Campo</h1>
+      <div class="sub">Vista móvil para supervisores: prioriza clientes cerca, PVTA, suficiencia y vendedores con oportunidad.</div>
     </div>
     <button class="btn2" onclick="resetFilters()">Limpiar filtros</button>
   </div>
 
   <div class="card" style="margin-bottom:14px">
     <h2 style="margin:0 0 6px 0">📡 Datos automáticos</h2>
-    <div id="autoLoadStatus" class="note">Cargando datos desde reembolsos.csv...</div>
+    <div id="autoLoadStatus" class="note">Cargando datos desde reembolsos.csv...</div><div class="note" style="margin-top:6px">Tip móvil: desliza tarjetas y tablas hacia los lados para ver más columnas.</div>
   </div>
 
   <div class="upload card">
