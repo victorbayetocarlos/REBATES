@@ -73,6 +73,13 @@ table{min-width:980px}#detailTable table{min-width:850px}
 @media(max-width:760px){.clientCards{grid-template-columns:1fr}}
 /* ===== FIN CLIENTES EN TARJETAS ===== */
 
+
+/* ===== MODO LIVIANO CLIENTES ===== */
+.clientCards{content-visibility:auto}
+.clientCard{contain:content}
+@media(max-width:760px){.clientCard{padding:10px}}
+/* ===== FIN MODO LIVIANO ===== */
+
 </style>
 </head>
 <body>
@@ -155,6 +162,7 @@ table{min-width:980px}#detailTable table{min-width:850px}
 let DATA=[], CLIENTS=[], ROWS_FILTERED=[], CURRENT_DETAIL=[];
 let CURRENT_TYPE='ganado_no_usado', ACTIVE_SUPERVISOR='Todos', ACTIVE_VENDOR='Todos';
 let SORT_KEY=null, SORT_DIR=1;
+let DETAIL_LIMIT=100;
 
 function normKey(s){return String(s||'').replace(/^\uFEFF/,'').trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[¿?]/g,'').replace(/[_\-./]+/g,' ').replace(/\s+/g,' ')}
 function pick(row, candidates){
@@ -309,12 +317,21 @@ async function copiarCliente(i){
   catch(e){ prompt('Copia este texto:', txt); }
 }
 
-function showDetail(type,reset=true){CURRENT_TYPE=type;if(reset){SORT_KEY=null;SORT_DIR=1}let base;if(ACTIVE_VENDOR!=='Todos'){let rd=ROWS_FILTERED.filter(r=>r.vendedor===ACTIVE_VENDOR);if(ACTIVE_SUPERVISOR!=='Todos')rd=rd.filter(r=>r.grupo===ACTIVE_SUPERVISOR);base=rowObjects(rd)}else{base=ACTIVE_SUPERVISOR==='Todos'?CLIENTS:CLIENTS.filter(c=>String(c.grupo).split(',').map(s=>s.trim()).includes(ACTIVE_SUPERVISOR))}CURRENT_DETAIL=base.filter(c=>{
+
+function verMasClientes(){
+  DETAIL_LIMIT += 100;
+  showDetail(CURRENT_TYPE,false);
+}
+function resetDetalleLimit(){
+  DETAIL_LIMIT = 100;
+}
+
+function showDetail(type,reset=true){CURRENT_TYPE=type;if(reset){SORT_KEY=null;SORT_DIR=1;resetDetalleLimit()}let base;if(ACTIVE_VENDOR!=='Todos'){let rd=ROWS_FILTERED.filter(r=>r.vendedor===ACTIVE_VENDOR);if(ACTIVE_SUPERVISOR!=='Todos')rd=rd.filter(r=>r.grupo===ACTIVE_SUPERVISOR);base=rowObjects(rd)}else{base=ACTIVE_SUPERVISOR==='Todos'?CLIENTS:CLIENTS.filter(c=>String(c.grupo).split(',').map(s=>s.trim()).includes(ACTIVE_SUPERVISOR))}CURRENT_DETAIL=base.filter(c=>{
   if(type==='total') return true;
   if(type==='ganado_no_usado') return classify(c)==='ganado_no_usado' && llegoPlan(c) && !c.uso_v;
   return classify(c)===type;
 });detailTitle.textContent=({ganado_no_usado:'🔥 Clientes que ganaron y NO usaron V',ganado_usado:'✅ Clientes que ganaron y usaron V',cerca:'🟡 Clientes cerca',lejos:'🔴 Clientes lejos',total:'👥 Clientes'}[type]||'Clientes');detailInfo.textContent='Mostrando '+fmt(CURRENT_DETAIL.length)+' registros';activeBadges.innerHTML=(ACTIVE_SUPERVISOR!=='Todos'?'<span class="selected-filter">Supervisor: '+ACTIVE_SUPERVISOR+'</span>':'')+(ACTIVE_VENDOR!=='Todos'?'<span class="selected-vendor">Vendedor: '+ACTIVE_VENDOR+'</span>':'');let show=showSufCols();
-let cards=CURRENT_DETAIL.slice(0,500).map((c,i)=>{
+let cards=CURRENT_DETAIL.slice(0,DETAIL_LIMIT).map((c,i)=>{
   const estadoTxt=classify(c).replaceAll('_',' ');
   const estado=badge(estadoTxt, classify(c)==='ganado_no_usado'?'b-red':classify(c)==='ganado_usado'?'b-green':classify(c)==='cerca'?'b-orange':'b-blue');
   const sufHtml=show?`<div class="clientNum"><small>Suficiencia</small><b>${money(suficiencia(c))}</b></div><div class="clientNum"><small>Gap neto</small><b>${money(gapNeto(c))}</b></div>`:'';
@@ -332,11 +349,12 @@ let cards=CURRENT_DETAIL.slice(0,500).map((c,i)=>{
     <button class="btn copyBtn" onclick="copiarCliente(${i})">Copiar WhatsApp</button>
   </div>`;
 }).join('');
-detailTable.innerHTML='<div class="clientCards">'+cards+'</div>';function showDetail(type,reset=true){CURRENT_TYPE=type;if(reset){SORT_KEY=null;SORT_DIR=1}let base;if(ACTIVE_VENDOR!=='Todos'){let rd=ROWS_FILTERED.filter(r=>r.vendedor===ACTIVE_VENDOR);if(ACTIVE_SUPERVISOR!=='Todos')rd=rd.filter(r=>r.grupo===ACTIVE_SUPERVISOR);base=rowObjects(rd)}else{base=ACTIVE_SUPERVISOR==='Todos'?CLIENTS:CLIENTS.filter(c=>String(c.grupo).split(',').map(s=>s.trim()).includes(ACTIVE_SUPERVISOR))}CURRENT_DETAIL=base.filter(c=>{
+detailTable.innerHTML='<div class="clientCards">'+cards+'</div>' + (CURRENT_DETAIL.length>DETAIL_LIMIT ? '<button class="btn2" style="width:100%;margin-top:10px" onclick="verMasClientes()">Ver 100 más ('+DETAIL_LIMIT+' de '+CURRENT_DETAIL.length+')</button>' : '') +
+  (CURRENT_DETAIL.length>DETAIL_LIMIT ? '<button class="btn2" style="width:100%;margin-top:10px" onclick="verMasClientes()">Ver 100 más ('+DETAIL_LIMIT+' de '+CURRENT_DETAIL.length+')</button>' : '');function showDetail(type,reset=true){CURRENT_TYPE=type;if(reset){SORT_KEY=null;SORT_DIR=1;resetDetalleLimit()}let base;if(ACTIVE_VENDOR!=='Todos'){let rd=ROWS_FILTERED.filter(r=>r.vendedor===ACTIVE_VENDOR);if(ACTIVE_SUPERVISOR!=='Todos')rd=rd.filter(r=>r.grupo===ACTIVE_SUPERVISOR);base=rowObjects(rd)}else{base=ACTIVE_SUPERVISOR==='Todos'?CLIENTS:CLIENTS.filter(c=>String(c.grupo).split(',').map(s=>s.trim()).includes(ACTIVE_SUPERVISOR))}CURRENT_DETAIL=base.filter(c=>{
   if(type==='total') return true;
   if(type==='ganado_no_usado') return classify(c)==='ganado_no_usado' && llegoPlan(c) && !c.uso_v;
   return classify(c)===type;
-});detailTitle.textContent=({ganado_no_usado:'🔥 Clientes que ganaron y NO usaron V',ganado_usado:'✅ Clientes que ganaron y usaron V',cerca:'🟡 Clientes cerca',lejos:'🔴 Clientes lejos',total:'👥 Clientes'}[type]||'Clientes');detailInfo.textContent='Mostrando '+fmt(CURRENT_DETAIL.length)+' registros';activeBadges.innerHTML=(ACTIVE_SUPERVISOR!=='Todos'?'<span class="selected-filter">Supervisor: '+ACTIVE_SUPERVISOR+'</span>':'')+(ACTIVE_VENDOR!=='Todos'?'<span class="selected-vendor">Vendedor: '+ACTIVE_VENDOR+'</span>':'');let show=showSufCols();let headers=show?['Cliente','Nombre','Cod vendedor','Día','Cuota','Avance','Gap','% avance','Suficiencia','PVTA','Gap neto','Estado']:['Cliente','Nombre','Cod vendedor','Día','Cuota','Avance','Gap','% avance','PVTA','Estado'];let rows=CURRENT_DETAIL.slice(0,1000).map(c=>{let e=badge(classify(c).replaceAll('_',' '),classify(c)==='ganado_no_usado'?'b-red':classify(c)==='ganado_usado'?'b-green':classify(c)==='cerca'?'b-orange':'b-blue');if(show)return'<tr><td>'+c.cliente+'</td><td>'+c.nombre+'</td><td>'+c.vendedor+'</td><td>'+c.dia+'</td><td class="num">'+money(c.cuota)+'</td><td class="num">'+money(c.avance)+'</td><td class="num">'+money(c.gap)+'</td><td class="num">'+pct(c.pct)+'</td><td class="num">'+money(suficiencia(c))+'</td><td class="num">'+money(pvtaCover(c))+'</td><td class="num">'+money(gapNeto(c))+'</td><td>'+e+'</td></tr>';return'<tr><td>'+c.cliente+'</td><td>'+c.nombre+'</td><td>'+c.vendedor+'</td><td>'+c.dia+'</td><td class="num">'+money(c.cuota)+'</td><td class="num">'+money(c.avance)+'</td><td class="num">'+money(c.gap)+'</td><td class="num">'+pct(c.pct)+'</td><td class="num">'+money(pvtaCover(c))+'</td><td>'+e+'</td></tr>'});detailTable.innerHTML='<table><thead><tr>'+headers.map(h=>'<th>'+h+'</th>').join('')+'</tr></thead><tbody>'+rows.join('')+'</tbody></table>'}
+});detailTitle.textContent=({ganado_no_usado:'🔥 Clientes que ganaron y NO usaron V',ganado_usado:'✅ Clientes que ganaron y usaron V',cerca:'🟡 Clientes cerca',lejos:'🔴 Clientes lejos',total:'👥 Clientes'}[type]||'Clientes');detailInfo.textContent='Mostrando '+fmt(CURRENT_DETAIL.length)+' registros';activeBadges.innerHTML=(ACTIVE_SUPERVISOR!=='Todos'?'<span class="selected-filter">Supervisor: '+ACTIVE_SUPERVISOR+'</span>':'')+(ACTIVE_VENDOR!=='Todos'?'<span class="selected-vendor">Vendedor: '+ACTIVE_VENDOR+'</span>':'');let show=showSufCols();let headers=show?['Cliente','Nombre','Cod vendedor','Día','Cuota','Avance','Gap','% avance','Suficiencia','PVTA','Gap neto','Estado']:['Cliente','Nombre','Cod vendedor','Día','Cuota','Avance','Gap','% avance','PVTA','Estado'];let rows=CURRENT_DETAIL.slice(0,DETAIL_LIMIT).map(c=>{let e=badge(classify(c).replaceAll('_',' '),classify(c)==='ganado_no_usado'?'b-red':classify(c)==='ganado_usado'?'b-green':classify(c)==='cerca'?'b-orange':'b-blue');if(show)return'<tr><td>'+c.cliente+'</td><td>'+c.nombre+'</td><td>'+c.vendedor+'</td><td>'+c.dia+'</td><td class="num">'+money(c.cuota)+'</td><td class="num">'+money(c.avance)+'</td><td class="num">'+money(c.gap)+'</td><td class="num">'+pct(c.pct)+'</td><td class="num">'+money(suficiencia(c))+'</td><td class="num">'+money(pvtaCover(c))+'</td><td class="num">'+money(gapNeto(c))+'</td><td>'+e+'</td></tr>';return'<tr><td>'+c.cliente+'</td><td>'+c.nombre+'</td><td>'+c.vendedor+'</td><td>'+c.dia+'</td><td class="num">'+money(c.cuota)+'</td><td class="num">'+money(c.avance)+'</td><td class="num">'+money(c.gap)+'</td><td class="num">'+pct(c.pct)+'</td><td class="num">'+money(pvtaCover(c))+'</td><td>'+e+'</td></tr>'});detailTable.innerHTML='<table><thead><tr>'+headers.map(h=>'<th>'+h+'</th>').join('')+'</tr></thead><tbody>'+rows.join('')+'</tbody></table>'}
 function exportDetail(){let rows=CURRENT_DETAIL.map(c=>{let o={Cliente:c.cliente,Nombre:c.nombre,Cod_Vendedor:c.vendedor,Dia:c.dia,Cuota:+(c.cuota||0).toFixed(2),Avance:+(c.avance||0).toFixed(2),Gap:+(c.gap||0).toFixed(2),Porcentaje_Avance:+(c.pct||0).toFixed(4),PVTA:+pvtaCover(c).toFixed(2),Estado:classify(c)};if(showSufCols()){o.Suficiencia=+suficiencia(c).toFixed(2);o.Gap_Neto=+gapNeto(c).toFixed(2)}return o});if(!rows.length){alert('No hay registros');return}let ws=XLSX.utils.json_to_sheet(rows),wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,'Detalle');XLSX.writeFile(wb,'detalle_rebates.xlsx')}
 async function captureDetailImage(){let target=document.querySelector('.card.full');let canvas=await html2canvas(target,{backgroundColor:'#fff',scale:2});canvas.toBlob(async blob=>{let file=new File([blob],'clientes_rebates.png',{type:'image/png'});if(navigator.canShare&&navigator.canShare({files:[file]})){await navigator.share({files:[file],title:'Clientes Rebates'});return}let a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='clientes_rebates.png';a.click()})}
 
