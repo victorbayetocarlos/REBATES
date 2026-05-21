@@ -108,7 +108,7 @@ table{min-width:980px}#detailTable table{min-width:850px}
   </div>
 
   <div class="kpis">
-    <div class="card kpi" onclick="showDetail('ganado_no_usado')"><div class="title">🔥 Ganó y no usó V</div><div id="k1" class="value">0</div><div class="submetric">Venta incremental</div></div>
+    <div class="card kpi" onclick="showDetail('ganado_no_usado')"><div class="title">🔥 Ganó y no usó V</div><div id="k1" class="value">0</div><div class="submetric">Solo llegó plan y NO usó V</div></div>
     <div class="card kpi" onclick="showDetail('ganado_usado')"><div class="title">✅ Ganó y usó V</div><div id="k2" class="value">0</div><div class="submetric">Beneficio usado</div></div>
     <div class="card kpi" onclick="showDetail('cerca')"><div class="title">🟡 Cerca de ganar</div><div id="k3" class="value">0</div><div id="k3s" class="submetric">Suf. S/ 0 | PVTA S/ 0</div></div>
     <div class="card kpi" onclick="showDetail('lejos')"><div class="title">🔴 Lejos</div><div id="k4" class="value">0</div><div id="k4s" class="submetric">Suf. S/ 0 | PVTA S/ 0</div></div>
@@ -167,7 +167,8 @@ function mapRow(r){
   const sede=String(pick(r,['SUCURSAL','Sucursal','sucursal','Sede','SEDE','Local','Centro'])).trim();
   const cuota=toNum(pick(r,['CUOTA REBATE','Cuota Rebate','Cuota','Plan','OBJETIVO']));
   const avance=toNum(pick(r,['AV REBATE','Av Rebate','Avance Rebate','Avance','Venta','Venta Rebate']));
-  const gap=toNum(pick(r,['FALTA REBATE','Falta Rebate','Gap','Faltante','Falta']));
+  const gapRaw=pick(r,['FALTA REBATE','Falta Rebate','Gap','Faltante','Falta']);
+  const gap=(gapRaw===undefined || gapRaw===null || String(gapRaw).trim()==='') ? Math.max(0,cuota-avance) : toNum(gapRaw);
   let pct=toNum(pick(r,['%AVANCE','% Avance','Porcentaje avance','Pct Avance','Avance %']));
   if(pct>3)pct=pct/100; if(!pct&&cuota)pct=avance/cuota;
   const usoRaw=String(pick(r,['¿Usó la V?','Uso la V?','Usó la V?','Uso V','USO V','Uso Beneficio','Uso'])||'NO').trim().toUpperCase();
@@ -183,8 +184,32 @@ function fill(id,arr,preserve=true){const el=document.getElementById(id);const c
 function nearBounds(){let mn=parseFloat(nearMin.value||80)/100,mx=parseFloat(nearMax.value||99)/100;if(isNaN(mn))mn=.8;if(isNaN(mx))mx=.99;if(mn>mx){let t=mn;mn=mx;mx=t}return{mn,mx}}
 function quotaBounds(){let mn=parseFloat(quotaMin.value),mx=parseFloat(quotaMax.value);if(isNaN(mn))mn=0;if(isNaN(mx))mx=Infinity;if(mn>mx){let t=mn;mn=mx;mx=t}return{mn,mx}}
 function suficiencia(x){return Math.max(0,Number(x.gap||0))} function pvtaCover(x){return Math.max(0,Number(x.pvta||0))} function gapNeto(x){return Math.max(0,suficiencia(x)-pvtaCover(x))}
-function classify(x){let b=nearBounds(),l=x.pct>=1||x.gap<=0||x.avance>=x.cuota;if(l&&!x.uso_v)return'ganado_no_usado';if(l&&x.uso_v)return'ganado_usado';if(!l&&x.pct>=b.mn&&x.pct<=b.mx)return'cerca';return'lejos'}
-function classifyRow(r){let b=nearBounds(),l=r.pct>=1||r.gap<=0||r.avance>=r.cuota;if(l&&r.uso_v==='NO')return'ganado_no_usado';if(l&&r.uso_v==='SI')return'ganado_usado';if(!l&&r.pct>=b.mn&&r.pct<=b.mx)return'cerca';return'lejos'}
+
+function llegoPlan(x){
+  const cuota = Number(x.cuota||0);
+  const avance = Number(x.avance||0);
+  const gap = Number(x.gap||0);
+  const pctv = Number(x.pct||0);
+  if(cuota <= 0) return false;
+  return pctv >= 1 || avance >= cuota || gap <= 0;
+}
+
+function classify(x){
+  let b=nearBounds();
+  let l=llegoPlan(x);
+  if(l && !x.uso_v) return 'ganado_no_usado';
+  if(l && x.uso_v) return 'ganado_usado';
+  if(!l && x.pct>=b.mn && x.pct<=b.mx) return 'cerca';
+  return 'lejos';
+}
+function classifyRow(r){
+  let b=nearBounds();
+  let l=llegoPlan(r);
+  if(l && r.uso_v==='NO') return 'ganado_no_usado';
+  if(l && r.uso_v==='SI') return 'ganado_usado';
+  if(!l && r.pct>=b.mn && r.pct<=b.mx) return 'cerca';
+  return 'lejos';
+}
 
 function refreshFilters(changed){
   if(!changed||changed==='init')fill('fSede',DATA.map(x=>x.sede),true);
@@ -193,7 +218,12 @@ function refreshFilters(changed){
   const v=fVend.value||'Todos'; let bd=bv.filter(x=>v==='Todos'||x.vendedor===v); fill('fDia',bd.map(x=>x.dia),changed!=='sede'&&changed!=='grupo'&&changed!=='vend');
 }
 function getRows(){const qb=quotaBounds(),s=fSede.value,g=fGrupo.value,v=fVend.value,d=fDia.value,q=fSearch.value.toLowerCase().trim();return DATA.filter(x=>(s==='Todos'||x.sede===s)&&(g==='Todos'||x.grupo===g)&&(v==='Todos'||x.vendedor===v)&&(d==='Todos'||x.dia===d)&&x.cuota>=qb.mn&&x.cuota<=qb.mx&&(!q||String(x.cliente).toLowerCase().includes(q)||String(x.nombre).toLowerCase().includes(q)))}
-function buildClients(rows){const m=new Map();rows.forEach(r=>{const key=r.cliente||r.nombre+'|'+r.sede;if(!m.has(key))m.set(key,{cliente:r.cliente,nombre:r.nombre,sede:r.sede,grupo:new Set(),vendedor:new Set(),dia:new Set(),cuota:0,avance:0,gap:999999999,pct:0,pvta:0,uso_v:false});const x=m.get(key);x.grupo.add(r.grupo);x.vendedor.add(r.vendedor);x.dia.add(r.dia);x.cuota=Math.max(x.cuota,r.cuota);x.avance=Math.max(x.avance,r.avance);x.gap=Math.min(x.gap,r.gap);x.pct=Math.max(x.pct,r.pct);x.pvta+=r.pvta;x.uso_v=x.uso_v||r.uso_v==='SI'});return Array.from(m.values()).map(x=>({...x,grupo:[...x.grupo].filter(Boolean).join(', '),vendedor:[...x.vendedor].filter(Boolean).join(', '),dia:[...x.dia].filter(Boolean).join(', '),gap:x.gap===999999999?0:x.gap}))}
+function buildClients(rows){const m=new Map();rows.forEach(r=>{const key=r.cliente||r.nombre+'|'+r.sede;if(!m.has(key))m.set(key,{cliente:r.cliente,nombre:r.nombre,sede:r.sede,grupo:new Set(),vendedor:new Set(),dia:new Set(),cuota:0,avance:0,gap:999999999,pct:0,pvta:0,uso_v:false});const x=m.get(key);x.grupo.add(r.grupo);x.vendedor.add(r.vendedor);x.dia.add(r.dia);x.cuota=Math.max(x.cuota,r.cuota);x.avance=Math.max(x.avance,r.avance);x.gap=Math.min(x.gap,r.gap);x.pct=Math.max(x.pct,r.pct);x.pvta+=r.pvta;x.uso_v=x.uso_v||r.uso_v==='SI'});return Array.from(m.values()).map(x=>{
+  const gapCalc = Math.max(0, Number(x.cuota||0)-Number(x.avance||0));
+  const gapFinal = x.gap===999999999 ? gapCalc : Math.min(Number(x.gap||0), gapCalc);
+  const pctFinal = x.pct || (x.cuota ? x.avance/x.cuota : 0);
+  return {...x,grupo:[...x.grupo].filter(Boolean).join(', '),vendedor:[...x.vendedor].filter(Boolean).join(', '),dia:[...x.dia].filter(Boolean).join(', '),gap:gapFinal,pct:pctFinal};
+})}
 function rowObjects(rows){return rows.map(r=>({...r,uso_v:r.uso_v==='SI'}))}
 function newAgg(name){return{name,total:0,opp:0,used:0,cerca:0,lejos:0,sufCerca:0,pvtaCerca:0,netoCerca:0,sufLejos:0,pvtaLejos:0,netoLejos:0}}
 function addAgg(a,cl,s,p){a.total++;if(cl==='ganado_no_usado')a.opp++;if(cl==='ganado_usado')a.used++;if(cl==='cerca'){a.cerca++;a.sufCerca+=s;a.pvtaCerca+=p;a.netoCerca+=Math.max(0,s-p)}if(cl==='lejos'){a.lejos++;a.sufLejos+=s;a.pvtaLejos+=p;a.netoLejos+=Math.max(0,s-p)}}
@@ -206,7 +236,11 @@ function resetFilters(){['fSede','fGrupo','fVend','fDia'].forEach(id=>document.g
 
 function render(){ROWS_FILTERED=getRows();CLIENTS=buildClients(ROWS_FILTERED);let k={ganado_no_usado:0,ganado_usado:0,cerca:0,lejos:0,total:CLIENTS.length,cercaSuf:0,cercaPvta:0,lejosSuf:0,lejosPvta:0};CLIENTS.forEach(c=>{let cl=classify(c);k[cl]++;if(cl==='cerca'){k.cercaSuf+=suficiencia(c);k.cercaPvta+=pvtaCover(c)}if(cl==='lejos'){k.lejosSuf+=suficiencia(c);k.lejosPvta+=pvtaCover(c)}});k1.textContent=fmt(k.ganado_no_usado);k2.textContent=fmt(k.ganado_usado);k3.textContent=fmt(k.cerca);k4.textContent=fmt(k.lejos);k5.textContent=fmt(k.total);k3s.textContent='Suf. '+money(k.cercaSuf)+' | PVTA '+money(k.cercaPvta);k4s.textContent='Suf. '+money(k.lejosSuf)+' | PVTA '+money(k.lejosPvta);renderAgg('grupoTable',aggClients(CLIENTS,'grupo'),'Supervisor / grupo');let rb=ACTIVE_SUPERVISOR==='Todos'?ROWS_FILTERED:ROWS_FILTERED.filter(r=>r.grupo===ACTIVE_SUPERVISOR);renderAgg('vendTable',aggRows(rb,'vendedor'),'Vendedor / visita');showDetail(CURRENT_TYPE,false)}
 function showSufCols(){return CURRENT_TYPE!=='ganado_no_usado'}
-function showDetail(type,reset=true){CURRENT_TYPE=type;if(reset){SORT_KEY=null;SORT_DIR=1}let base;if(ACTIVE_VENDOR!=='Todos'){let rd=ROWS_FILTERED.filter(r=>r.vendedor===ACTIVE_VENDOR);if(ACTIVE_SUPERVISOR!=='Todos')rd=rd.filter(r=>r.grupo===ACTIVE_SUPERVISOR);base=rowObjects(rd)}else{base=ACTIVE_SUPERVISOR==='Todos'?CLIENTS:CLIENTS.filter(c=>String(c.grupo).split(',').map(s=>s.trim()).includes(ACTIVE_SUPERVISOR))}CURRENT_DETAIL=base.filter(c=>type==='total'||classify(c)===type);detailTitle.textContent=({ganado_no_usado:'🔥 Clientes que ganaron y NO usaron V',ganado_usado:'✅ Clientes que ganaron y usaron V',cerca:'🟡 Clientes cerca',lejos:'🔴 Clientes lejos',total:'👥 Clientes'}[type]||'Clientes');detailInfo.textContent='Mostrando '+fmt(CURRENT_DETAIL.length)+' registros';activeBadges.innerHTML=(ACTIVE_SUPERVISOR!=='Todos'?'<span class="selected-filter">Supervisor: '+ACTIVE_SUPERVISOR+'</span>':'')+(ACTIVE_VENDOR!=='Todos'?'<span class="selected-vendor">Vendedor: '+ACTIVE_VENDOR+'</span>':'');let show=showSufCols();let headers=show?['Cliente','Nombre','Cod vendedor','Día','Cuota','Avance','Gap','% avance','Suficiencia','PVTA','Gap neto','Estado']:['Cliente','Nombre','Cod vendedor','Día','Cuota','Avance','Gap','% avance','PVTA','Estado'];let rows=CURRENT_DETAIL.slice(0,1000).map(c=>{let e=badge(classify(c).replaceAll('_',' '),classify(c)==='ganado_no_usado'?'b-red':classify(c)==='ganado_usado'?'b-green':classify(c)==='cerca'?'b-orange':'b-blue');if(show)return'<tr><td>'+c.cliente+'</td><td>'+c.nombre+'</td><td>'+c.vendedor+'</td><td>'+c.dia+'</td><td class="num">'+money(c.cuota)+'</td><td class="num">'+money(c.avance)+'</td><td class="num">'+money(c.gap)+'</td><td class="num">'+pct(c.pct)+'</td><td class="num">'+money(suficiencia(c))+'</td><td class="num">'+money(pvtaCover(c))+'</td><td class="num">'+money(gapNeto(c))+'</td><td>'+e+'</td></tr>';return'<tr><td>'+c.cliente+'</td><td>'+c.nombre+'</td><td>'+c.vendedor+'</td><td>'+c.dia+'</td><td class="num">'+money(c.cuota)+'</td><td class="num">'+money(c.avance)+'</td><td class="num">'+money(c.gap)+'</td><td class="num">'+pct(c.pct)+'</td><td class="num">'+money(pvtaCover(c))+'</td><td>'+e+'</td></tr>'});detailTable.innerHTML='<table><thead><tr>'+headers.map(h=>'<th>'+h+'</th>').join('')+'</tr></thead><tbody>'+rows.join('')+'</tbody></table>'}
+function showDetail(type,reset=true){CURRENT_TYPE=type;if(reset){SORT_KEY=null;SORT_DIR=1}let base;if(ACTIVE_VENDOR!=='Todos'){let rd=ROWS_FILTERED.filter(r=>r.vendedor===ACTIVE_VENDOR);if(ACTIVE_SUPERVISOR!=='Todos')rd=rd.filter(r=>r.grupo===ACTIVE_SUPERVISOR);base=rowObjects(rd)}else{base=ACTIVE_SUPERVISOR==='Todos'?CLIENTS:CLIENTS.filter(c=>String(c.grupo).split(',').map(s=>s.trim()).includes(ACTIVE_SUPERVISOR))}CURRENT_DETAIL=base.filter(c=>{
+  if(type==='total') return true;
+  if(type==='ganado_no_usado') return classify(c)==='ganado_no_usado' && llegoPlan(c) && !c.uso_v;
+  return classify(c)===type;
+});detailTitle.textContent=({ganado_no_usado:'🔥 Clientes que ganaron y NO usaron V',ganado_usado:'✅ Clientes que ganaron y usaron V',cerca:'🟡 Clientes cerca',lejos:'🔴 Clientes lejos',total:'👥 Clientes'}[type]||'Clientes');detailInfo.textContent='Mostrando '+fmt(CURRENT_DETAIL.length)+' registros';activeBadges.innerHTML=(ACTIVE_SUPERVISOR!=='Todos'?'<span class="selected-filter">Supervisor: '+ACTIVE_SUPERVISOR+'</span>':'')+(ACTIVE_VENDOR!=='Todos'?'<span class="selected-vendor">Vendedor: '+ACTIVE_VENDOR+'</span>':'');let show=showSufCols();let headers=show?['Cliente','Nombre','Cod vendedor','Día','Cuota','Avance','Gap','% avance','Suficiencia','PVTA','Gap neto','Estado']:['Cliente','Nombre','Cod vendedor','Día','Cuota','Avance','Gap','% avance','PVTA','Estado'];let rows=CURRENT_DETAIL.slice(0,1000).map(c=>{let e=badge(classify(c).replaceAll('_',' '),classify(c)==='ganado_no_usado'?'b-red':classify(c)==='ganado_usado'?'b-green':classify(c)==='cerca'?'b-orange':'b-blue');if(show)return'<tr><td>'+c.cliente+'</td><td>'+c.nombre+'</td><td>'+c.vendedor+'</td><td>'+c.dia+'</td><td class="num">'+money(c.cuota)+'</td><td class="num">'+money(c.avance)+'</td><td class="num">'+money(c.gap)+'</td><td class="num">'+pct(c.pct)+'</td><td class="num">'+money(suficiencia(c))+'</td><td class="num">'+money(pvtaCover(c))+'</td><td class="num">'+money(gapNeto(c))+'</td><td>'+e+'</td></tr>';return'<tr><td>'+c.cliente+'</td><td>'+c.nombre+'</td><td>'+c.vendedor+'</td><td>'+c.dia+'</td><td class="num">'+money(c.cuota)+'</td><td class="num">'+money(c.avance)+'</td><td class="num">'+money(c.gap)+'</td><td class="num">'+pct(c.pct)+'</td><td class="num">'+money(pvtaCover(c))+'</td><td>'+e+'</td></tr>'});detailTable.innerHTML='<table><thead><tr>'+headers.map(h=>'<th>'+h+'</th>').join('')+'</tr></thead><tbody>'+rows.join('')+'</tbody></table>'}
 function exportDetail(){let rows=CURRENT_DETAIL.map(c=>{let o={Cliente:c.cliente,Nombre:c.nombre,Cod_Vendedor:c.vendedor,Dia:c.dia,Cuota:+(c.cuota||0).toFixed(2),Avance:+(c.avance||0).toFixed(2),Gap:+(c.gap||0).toFixed(2),Porcentaje_Avance:+(c.pct||0).toFixed(4),PVTA:+pvtaCover(c).toFixed(2),Estado:classify(c)};if(showSufCols()){o.Suficiencia=+suficiencia(c).toFixed(2);o.Gap_Neto=+gapNeto(c).toFixed(2)}return o});if(!rows.length){alert('No hay registros');return}let ws=XLSX.utils.json_to_sheet(rows),wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,'Detalle');XLSX.writeFile(wb,'detalle_rebates.xlsx')}
 async function captureDetailImage(){let target=document.querySelector('.card.full');let canvas=await html2canvas(target,{backgroundColor:'#fff',scale:2});canvas.toBlob(async blob=>{let file=new File([blob],'clientes_rebates.png',{type:'image/png'});if(navigator.canShare&&navigator.canShare({files:[file]})){await navigator.share({files:[file],title:'Clientes Rebates'});return}let a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='clientes_rebates.png';a.click()})}
 
