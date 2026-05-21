@@ -3,500 +3,218 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Dashboard Rebates</title>
+<title>Dashboard Rebates Campo</title>
+<script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
 <style>
-:root{--bg:#eef4ff;--card:#fff;--ink:#172033;--muted:#697386;--line:#d9e2f2;--blue:#1d4ed8}
+:root{--bg:#eef4ff;--card:#fff;--ink:#172033;--muted:#667085;--line:#d9e2f2;--blue:#1d4ed8;--green:#16a34a}
 *{box-sizing:border-box}
-body{margin:0;background:linear-gradient(180deg,#eef4ff 0%,#f7f9fc 100%);font-family:Arial,Helvetica,sans-serif;color:var(--ink)}
-.wrap{max-width:1500px;margin:0 auto;padding:18px}
-.header{display:flex;justify-content:space-between;gap:14px;align-items:flex-start;margin-bottom:14px}
-h1{font-size:25px;margin:0 0 6px 0;letter-spacing:-.4px}
-.sub,.note,.nearhint{color:var(--muted);font-size:12px;line-height:1.35}
-.card{background:var(--card);border:1px solid var(--line);border-radius:20px;padding:14px;box-shadow:0 10px 30px rgba(37,99,235,.08)}
-.upload,.nearbox,.quotabox{display:grid;grid-template-columns:1fr 1fr 1.2fr;gap:10px;align-items:end;margin-bottom:14px}
-.upload{grid-template-columns:1fr 1.5fr}
-.filters{display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin-bottom:14px}
-.filter label,.nearbox label,.quotabox label{display:block;font-size:11px;font-weight:bold;color:var(--muted);margin-bottom:4px;text-transform:uppercase}
-input[type=file],select,input[type=text],input[type=number]{width:100%;padding:9px;border:1px solid var(--line);border-radius:12px;background:#fff}
-.kpis{display:grid;grid-template-columns:repeat(5,1fr);gap:12px;margin-bottom:14px}
-.kpi{cursor:pointer;transition:.15s;min-height:124px;background:linear-gradient(180deg,#fff 0%,#f8fbff 100%)}
-.kpi:hover{transform:translateY(-2px);border-color:#93c5fd}
-.kpi .title{font-size:12px;color:var(--muted);font-weight:bold;text-transform:uppercase}
-.kpi .value{font-size:30px;font-weight:900;margin:8px 0;letter-spacing:-1px}
-.kpi .hint{font-size:12px;color:var(--muted);line-height:1.3}
-.submetric{margin-top:6px;font-size:11px;font-weight:800;color:#155e75;background:#ecfeff;border-radius:999px;padding:4px 8px;display:inline-block}
-.grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px}
+body{margin:0;background:linear-gradient(180deg,#eef4ff,#f8fafc);font-family:Arial,Helvetica,sans-serif;color:var(--ink)}
+.wrap{max-width:1500px;margin:0 auto;padding:14px}
+.header{position:sticky;top:0;z-index:30;background:linear-gradient(180deg,#eef4ff 70%,rgba(238,244,255,.94));padding:8px 0;border-bottom:1px solid #d9e2f2}
+.headerRow{display:flex;justify-content:space-between;gap:10px;align-items:flex-start}
+h1{font-size:24px;line-height:1.1;margin:0 0 5px;font-weight:900}
+.sub,.note{font-size:12px;color:var(--muted);line-height:1.35}
+.card{background:var(--card);border:1px solid var(--line);border-radius:18px;padding:14px;margin-bottom:14px;box-shadow:0 8px 24px rgba(37,99,235,.07)}
+.btn,.btn2{border:0;border-radius:12px;padding:10px 12px;font-weight:800;cursor:pointer;min-height:42px}
+.btn{background:#1d4ed8;color:white}.btn2{background:white;border:1px solid var(--line);color:var(--ink)}
+.btnGreen{background:#16a34a;color:white}
+.gridFilters{display:grid;grid-template-columns:repeat(5,1fr);gap:10px}
+.rangeGrid{display:grid;grid-template-columns:1fr 1fr 1.2fr;gap:10px;align-items:end}
+label{font-size:11px;font-weight:900;color:var(--muted);text-transform:uppercase;display:block;margin-bottom:5px}
+select,input{width:100%;padding:10px;border:1px solid var(--line);border-radius:12px;background:white;font-size:15px;min-height:42px}
+.kpis{display:grid;grid-template-columns:repeat(5,1fr);gap:12px}
+.kpi{cursor:pointer;min-height:125px;background:linear-gradient(180deg,#fff,#f8fbff)}
+.kpi:hover{border-color:#93c5fd;transform:translateY(-1px)}
+.kpi .title{font-size:12px;color:var(--muted);font-weight:900;text-transform:uppercase}
+.kpi .value{font-size:30px;font-weight:900;margin:7px 0}
+.submetric{font-size:11px;font-weight:800;color:#155e75;background:#ecfeff;border-radius:999px;padding:4px 8px;display:inline-block}
+.mainGrid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
 .full{grid-column:1/-1}
-h2{font-size:17px;margin:0 0 8px 0}
-.tablewrap{max-height:460px;overflow:auto;border-radius:14px;border:1px solid var(--line);background:white}
-table{border-collapse:collapse;width:100%;font-size:12px;background:white}
-th,td{padding:8px 10px;border-bottom:1px solid var(--line);white-space:nowrap;text-align:left}
-th{position:sticky;top:0;background:linear-gradient(180deg,#1e3a8a 0%,#1e40af 100%);color:white;z-index:1;cursor:pointer;font-weight:800}
-tr:nth-child(even) td{background:#f8fbff}
-tr:hover td{background:#eaf2ff!important}
+h2{font-size:17px;margin:0 0 8px}
+.tablewrap{max-height:58vh;overflow:auto;border:1px solid var(--line);border-radius:14px;background:white;-webkit-overflow-scrolling:touch}
+table{border-collapse:collapse;width:100%;min-width:980px;font-size:12px}
+th,td{padding:9px 10px;border-bottom:1px solid #e5e7eb;white-space:nowrap;text-align:left}
+th{position:sticky;top:0;z-index:5;background:linear-gradient(180deg,#1e3a8a,#1e40af);color:white;font-weight:900}
+tr:nth-child(even) td{background:#f8fbff} tr:hover td{background:#eaf2ff!important}
 .num{text-align:right;font-variant-numeric:tabular-nums}
-.btn{border:0;background:linear-gradient(180deg,#2563eb 0%,#1d4ed8 100%);color:white;padding:9px 12px;border-radius:12px;font-weight:bold;cursor:pointer}
-.btn2{border:1px solid var(--line);background:white;color:var(--ink);padding:9px 12px;border-radius:12px;font-weight:bold;cursor:pointer}
-.actionbar{display:flex;justify-content:space-between;gap:8px;align-items:center;margin:10px 0;flex-wrap:wrap}
-.badge{padding:4px 8px;border-radius:999px;font-size:11px;font-weight:800}
+.badge{padding:4px 8px;border-radius:999px;font-size:11px;font-weight:900}
 .b-red{background:#fee2e2;color:#991b1b}.b-green{background:#dcfce7;color:#166534}.b-orange{background:#ffedd5;color:#9a3412}.b-blue{background:#dbeafe;color:#1e40af}
 #grupoTable tbody tr,#vendTable tbody tr{cursor:pointer}
-#grupoTable tbody tr:hover td,#vendTable tbody tr:hover td{background:#dbeafe!important}
-.row-selected td{background:#cffafe!important;font-weight:800}
-.selected-filter,.selected-vendor{display:inline-block;margin:0 6px 8px 0;padding:5px 10px;border-radius:999px;background:#ecfeff;color:#155e75;font-size:11px;font-weight:800}
-@media(max-width:1120px){.kpis{grid-template-columns:repeat(2,1fr)}.grid{grid-template-columns:1fr}.filters{grid-template-columns:repeat(2,1fr)}.upload,.nearbox,.quotabox{grid-template-columns:1fr}}
-
-/* ===== COLUMNAS FIJAS EN TABLAS ===== */
-#grupoTable th:first-child,
-#grupoTable td:first-child,
-#vendTable th:first-child,
-#vendTable td:first-child{
-  position:sticky;
-  left:0;
-  z-index:3;
-  background:#ffffff;
-  box-shadow:2px 0 5px rgba(15,23,42,.08);
-}
-#grupoTable th:first-child,
-#vendTable th:first-child{
-  z-index:6;
-  background:linear-gradient(180deg,#1e3a8a 0%,#1e40af 100%)!important;
-  color:#fff!important;
-}
-#detailTable th:nth-child(1),
-#detailTable td:nth-child(1){
-  position:sticky;
-  left:0;
-  z-index:4;
-  background:#ffffff;
-  box-shadow:2px 0 5px rgba(15,23,42,.08);
-}
-#detailTable th:nth-child(2),
-#detailTable td:nth-child(2){
-  position:sticky;
-  left:115px;
-  z-index:4;
-  background:#ffffff;
-  box-shadow:2px 0 5px rgba(15,23,42,.08);
-}
-#detailTable th:nth-child(1),
-#detailTable th:nth-child(2){
-  z-index:7;
-  background:linear-gradient(180deg,#1e3a8a 0%,#1e40af 100%)!important;
-  color:#fff!important;
-}
-#detailTable td:nth-child(1),
-#detailTable th:nth-child(1){
-  min-width:115px;
-  max-width:115px;
-}
-#detailTable td:nth-child(2),
-#detailTable th:nth-child(2){
-  min-width:230px;
-  max-width:230px;
-  white-space:normal;
-}
-#grupoTable tr:nth-child(even) td:first-child,
-#vendTable tr:nth-child(even) td:first-child,
-#detailTable tr:nth-child(even) td:nth-child(1),
-#detailTable tr:nth-child(even) td:nth-child(2){
-  background:#f8fbff;
-}
-#grupoTable tr:hover td:first-child,
-#vendTable tr:hover td:first-child,
-#detailTable tr:hover td:nth-child(1),
-#detailTable tr:hover td:nth-child(2){
-  background:#eaf2ff!important;
-}
+.row-selected td{background:#cffafe!important;font-weight:900}
+.selected-filter,.selected-vendor{display:inline-flex;margin:0 6px 8px 0;padding:5px 10px;border-radius:999px;background:#ecfeff;color:#155e75;font-size:11px;font-weight:900}
+.actions{display:flex;gap:8px;flex-wrap:wrap}
+.loadingOk{color:#166534;font-weight:900}.loadingBad{color:#991b1b;font-weight:900}
+#grupoTable th:first-child,#grupoTable td:first-child,#vendTable th:first-child,#vendTable td:first-child{position:sticky;left:0;z-index:3;background:#fff;box-shadow:2px 0 5px rgba(0,0,0,.08)}
+#grupoTable th:first-child,#vendTable th:first-child{z-index:7;background:linear-gradient(180deg,#1e3a8a,#1e40af)!important;color:#fff}
+#detailTable th:nth-child(1),#detailTable td:nth-child(1){position:sticky;left:0;z-index:4;background:#fff;min-width:105px;max-width:105px;box-shadow:2px 0 5px rgba(0,0,0,.08)}
+#detailTable th:nth-child(2),#detailTable td:nth-child(2){position:sticky;left:105px;z-index:4;background:#fff;min-width:210px;max-width:210px;white-space:normal;box-shadow:2px 0 5px rgba(0,0,0,.08)}
+#detailTable th:nth-child(1),#detailTable th:nth-child(2){z-index:8;background:linear-gradient(180deg,#1e3a8a,#1e40af)!important;color:#fff}
 @media(max-width:760px){
-  #detailTable th:nth-child(2),
-  #detailTable td:nth-child(2){
-    left:92px;
-  }
-  #detailTable td:nth-child(1),
-  #detailTable th:nth-child(1){
-    min-width:92px;
-    max-width:92px;
-  }
-  #detailTable td:nth-child(2),
-  #detailTable th:nth-child(2){
-    min-width:180px;
-    max-width:180px;
-  }
+.wrap{padding:10px}.headerRow{display:block}.header .btn2{width:100%;margin-top:8px}h1{font-size:20px}
+.gridFilters{grid-template-columns:1fr 1fr}.rangeGrid{grid-template-columns:1fr 1fr}.rangeGrid .note{grid-column:1/-1}
+.kpis{grid-template-columns:1fr 1fr;gap:10px}.kpi{min-height:120px;padding:12px}.kpi .value{font-size:26px}
+.mainGrid{grid-template-columns:1fr}.actions{display:grid;grid-template-columns:1fr;width:100%}
+table{min-width:980px}#detailTable table{min-width:850px}
+#detailTable th:nth-child(1),#detailTable td:nth-child(1){min-width:90px;max-width:90px}
+#detailTable th:nth-child(2),#detailTable td:nth-child(2){left:90px;min-width:170px;max-width:170px}
 }
-/* ===== FIN COLUMNAS FIJAS ===== */
-
-.loadingOk{color:#166534;font-weight:800}.loadingBad{color:#991b1b;font-weight:800}
+@media(max-width:430px){.gridFilters,.rangeGrid,.kpis{grid-template-columns:1fr}.kpi{min-height:auto}}
 </style>
-<script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
 </head>
 <body>
 <div class="wrap">
   <div class="header">
-    <div>
-      <h1>Dashboard Rebates - Maximizar Inversión</h1>
-      <div class="sub">Suficiencia separada para clientes cerca y lejos. PVTA mide cuánto cubre del gap. Los datos se cargan automáticamente desde reembolsos.csv.</div>
+    <div class="headerRow">
+      <div>
+        <h1>Dashboard Rebates - Supervisor Campo</h1>
+        <div class="sub">Carga automática desde <b>reembolsos.csv</b>. Vista optimizada para celular, supervisores y acción comercial.</div>
+      </div>
+      <button class="btn2" onclick="resetFilters()">Limpiar filtros</button>
     </div>
-    <button class="btn2" onclick="resetFilters()">Limpiar filtros</button>
   </div>
 
-  <div class="card" style="margin-bottom:14px">
-    <h2 style="margin:0 0 6px 0">📡 Datos automáticos</h2>
-    <div id="autoLoadStatus" class="note">El dashboard cargará automáticamente el archivo reembolsos.csv publicado en este repositorio.</div>
+  <div class="card">
+    <h2>📡 Datos automáticos</h2>
+    <div id="autoLoadStatus" class="note">Cargando datos desde reembolsos.csv...</div>
+    <div class="note" style="margin-top:6px">Tip móvil: desliza tablas hacia los lados para ver más columnas.</div>
   </div>
 
-  <div class="upload card">
-    <div><h2>📂 Cargar archivo Excel</h2><div class="note">Carga automática desde reembolsos.csv. También puedes cargar un Excel manualmente como respaldo.</div></div>
-    <input type="file" id="excelFile" accept=".xlsx,.xls">
+  <div class="card">
+    <h2>📁 Cargar archivo manual</h2>
+    <div class="note">Respaldo si GitHub demora en actualizar. Puedes cargar CSV o Excel manualmente.</div>
+    <input type="file" id="manualFile" accept=".csv,.xlsx,.xls">
   </div>
 
-  <div class="filters card">
-    <div class="filter"><label>Sede</label><select id="fSede"></select></div>
-    <div class="filter"><label>Supervisor / grupo</label><select id="fGrupo"></select></div>
-    <div class="filter"><label>Vendedor</label><select id="fVend"></select></div>
-    <div class="filter"><label>Día</label><select id="fDia"></select></div>
-    <div class="filter"><label>Buscar cliente</label><input id="fSearch" type="text" placeholder="Código o nombre"></div>
+  <div class="card gridFilters">
+    <div><label>Sede</label><select id="fSede"></select></div>
+    <div><label>Supervisor / grupo</label><select id="fGrupo"></select></div>
+    <div><label>Vendedor</label><select id="fVend"></select></div>
+    <div><label>Día</label><select id="fDia"></select></div>
+    <div><label>Buscar cliente</label><input id="fSearch" placeholder="Código o nombre"></div>
   </div>
 
-  <div class="nearbox card">
-    <div><label>Cerca desde (%)</label><input id="nearMin" type="number" min="0" max="100" step="1" value="80"></div>
-    <div><label>Cerca hasta (%)</label><input id="nearMax" type="number" min="0" max="100" step="1" value="99"></div>
-    <div class="nearhint">Default: 80% a 99%. Puedes cambiarlo a 90%-99% para cierre inmediato.</div>
+  <div class="card rangeGrid">
+    <div><label>Cerca desde (%)</label><input id="nearMin" type="number" value="80" min="0" max="100"></div>
+    <div><label>Cerca hasta (%)</label><input id="nearMax" type="number" value="99" min="0" max="100"></div>
+    <div class="note">Default: 80% a 99%. Puedes cambiarlo a 90%-99% para cierre inmediato.</div>
   </div>
 
-  <div class="quotabox card">
-    <div><label>Cuota mínima</label><input id="quotaMin" type="number" min="0" step="100" placeholder="Todas"></div>
-    <div><label>Cuota máxima</label><input id="quotaMax" type="number" min="0" step="100" placeholder="Todas"></div>
-    <div class="nearhint">Filtra por tamaño de cuota para ver la dimensión real: 0-500, 501-1000, 1001 a más.</div>
+  <div class="card rangeGrid">
+    <div><label>Cuota mínima</label><input id="quotaMin" type="number" placeholder="Todas"></div>
+    <div><label>Cuota máxima</label><input id="quotaMax" type="number" placeholder="Todas"></div>
+    <div class="note">Filtra por tamaño de cliente para ver la dimensión real.</div>
   </div>
 
   <div class="kpis">
-    <div class="card kpi" onclick="showDetail('ganado_no_usado')"><div class="title">🔥 Ganó y no usó V</div><div id="k1" class="value">0</div><div class="hint">Venta incremental posible con beneficio ya ganado.</div></div>
-    <div class="card kpi" onclick="showDetail('ganado_usado')"><div class="title">✅ Ganó y usó V</div><div id="k2" class="value">0</div><div class="hint">Clientes que capturaron el beneficio.</div></div>
-    <div class="card kpi" onclick="showDetail('cerca')"><div class="title">🟡 Cerca de ganar</div><div id="k3" class="value">0</div><div id="k3s" class="submetric">Suf. S/ 0 | PVTA S/ 0</div><div class="hint">Clientes dentro del rango definido.</div></div>
-    <div class="card kpi" onclick="showDetail('lejos')"><div class="title">🔴 Lejos</div><div id="k4" class="value">0</div><div id="k4s" class="submetric">Suf. S/ 0 | PVTA S/ 0</div><div class="hint">Clientes fuera del rango de cierre.</div></div>
-    <div class="card kpi" onclick="showDetail('total')"><div class="title">👥 Clientes únicos</div><div id="k5" class="value">0</div><div class="hint">Sin duplicar por visita P/G.</div></div>
+    <div class="card kpi" onclick="showDetail('ganado_no_usado')"><div class="title">🔥 Ganó y no usó V</div><div id="k1" class="value">0</div><div class="submetric">Venta incremental</div></div>
+    <div class="card kpi" onclick="showDetail('ganado_usado')"><div class="title">✅ Ganó y usó V</div><div id="k2" class="value">0</div><div class="submetric">Beneficio usado</div></div>
+    <div class="card kpi" onclick="showDetail('cerca')"><div class="title">🟡 Cerca de ganar</div><div id="k3" class="value">0</div><div id="k3s" class="submetric">Suf. S/ 0 | PVTA S/ 0</div></div>
+    <div class="card kpi" onclick="showDetail('lejos')"><div class="title">🔴 Lejos</div><div id="k4" class="value">0</div><div id="k4s" class="submetric">Suf. S/ 0 | PVTA S/ 0</div></div>
+    <div class="card kpi" onclick="showDetail('total')"><div class="title">👥 Clientes</div><div id="k5" class="value">0</div><div class="submetric">Únicos</div></div>
   </div>
 
-  <div class="grid">
+  <div class="mainGrid">
     <div class="card">
       <h2>Ranking por supervisor</h2>
-      <div class="note">Suficiencia separada: cerca y lejos. Clic para recalcular vendedor/visita.</div>
+      <div class="note">Clic en un supervisor para recalcular vendedor/visita.</div>
       <div id="grupoTable" class="tablewrap"></div>
     </div>
     <div class="card">
       <h2>Ranking vendedor / visita</h2>
-      <div class="note">Usa registros individuales. Clic en vendedor para cambiar detalle y exportación.</div>
+      <div class="note">Clic en un vendedor para cambiar clientes y exportación.</div>
       <div id="vendTable" class="tablewrap"></div>
     </div>
     <div class="card full">
-      <h2 id="detailTitle">Detalle accionable</h2>
-      <div class="actionbar">
-        <div><div id="detailInfo" class="note"></div><div id="activeBadges"></div></div>
+      <h2 id="detailTitle">Clientes</h2>
+      <div class="actions" style="margin-bottom:10px">
         <button class="btn" onclick="exportDetail()">Exportar detalle a Excel</button>
+        <button class="btn btnGreen" onclick="captureDetailImage()">Imagen WhatsApp</button>
       </div>
+      <div id="detailInfo" class="note"></div>
+      <div id="activeBadges"></div>
       <div id="detailTable" class="tablewrap"></div>
     </div>
   </div>
 </div>
 
 <script>
-let DATA = [];
-let CLIENTS=[], ROWS_FILTERED=[], CURRENT_DETAIL=[];
+let DATA=[], CLIENTS=[], ROWS_FILTERED=[], CURRENT_DETAIL=[];
 let CURRENT_TYPE='ganado_no_usado', ACTIVE_SUPERVISOR='Todos', ACTIVE_VENDOR='Todos';
 let SORT_KEY=null, SORT_DIR=1;
 
-const aliases={
- vendedor:['Vendedor','VENDEDOR','Cod Vendedor','Codigo Vendedor','Código Vendedor','FuerzaVentas','Fuerza Ventas','FV'],
- cliente:['Cliente','CLIENTE','ClienteCodigo','Código Cliente','Codigo Cliente','Cod Cliente','COD CLIENTE'],
- nombre:['Nombre Cliente','NOMBRE CLIENTE','Cliente Nombre','Razon Social','Razón Social','Nombre'],
- dia:['DiaDeSemana','DIADESEMANA','Dia de Semana','Día de Semana','Dia','DÍA'],
- grupo:['grupoventas','GRUPOVENTAS','Grupo Ventas','Grupo','Supervisor','SUPERVISOR','Mesa','MESA'],
- uso_v:['¿Usó la V?','Uso la V?','USO LA V?','Usó la V?','Uso V','USO V'],
- sede:['SUCURSAL','Sucursal','sucursal','Sede','SEDE'],
- cuota:['CUOTA REBATE','Cuota Rebate','Cuota','Plan'],
- avance:['AV REBATE','Av Rebate','Avance Rebate','Avance'],
- gap:['FALTA REBATE','Falta Rebate','Gap'],
- pct:['%AVANCE','% Avance','Porcentaje avance'],
- pvta:['PVTA','pvta','Pvta','Preventa','PREVENTA','Preventa Hoy','PREVENTA HOY']
-};
-function norm(s){return String(s||'').trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[¿?]/g,'').replace(/\s+/g,' ')}
-function pick(row,list){let m={};Object.keys(row).forEach(k=>m[norm(k)]=row[k]);for(const a of list){let v=m[norm(a)];if(v!==undefined)return v;}return '';}
-function num(x){if(x===null||x===undefined||x==='')return 0;if(typeof x==='number')return x;let n=parseFloat(String(x).replace(/S\/|,/g,''));return isNaN(n)?0:n;}
-function mapRow(r){
- let cuota=num(pick(r,aliases.cuota)), avance=num(pick(r,aliases.avance)), gap=num(pick(r,aliases.gap));
- let p=num(pick(r,aliases.pct)); if(p>3)p=p/100; if(!p&&cuota)p=avance/cuota;
- let u=String(pick(r,aliases.uso_v)||'NO').toUpperCase().trim();
- return {vendedor:String(pick(r,aliases.vendedor)||'').trim(),cliente:String(pick(r,aliases.cliente)||'').trim(),nombre:String(pick(r,aliases.nombre)||'').trim(),dia:String(pick(r,aliases.dia)||'').trim(),grupo:String(pick(r,aliases.grupo)||'').trim(),uso_v:u.startsWith('S')?'SI':'NO',sede:String(pick(r,aliases.sede)||'').trim(),cuota:cuota,avance:avance,gap:gap,pct:p,pvta:num(pick(r,aliases.pvta))};
-}
-function fmt(n){return (n||0).toLocaleString('es-PE')}
-function money2(n){return 'S/ '+(n||0).toLocaleString('es-PE',{minimumFractionDigits:2,maximumFractionDigits:2})}
-function pct2(n){return ((n||0)*100).toLocaleString('es-PE',{minimumFractionDigits:2,maximumFractionDigits:2})+'%'}
-function badge(t,c){return '<span class="badge '+c+'">'+t+'</span>'}
-function uniq(arr){return ['Todos',...Array.from(new Set(arr.map(x=>String(x||'').trim()).filter(Boolean))).sort((a,b)=>a.localeCompare(b,'es'))]}
-function fill(id,arr,preserve=true){let el=document.getElementById(id),cur=preserve?(el.value||'Todos'):'Todos',vals=uniq(arr);el.innerHTML=vals.map(x=>'<option value="'+x+'">'+x+'</option>').join('');el.value=vals.includes(cur)?cur:'Todos';}
-function nearBounds(){let mn=parseFloat(nearMin.value||80)/100,mx=parseFloat(nearMax.value||99)/100;if(isNaN(mn))mn=.8;if(isNaN(mx))mx=.99;if(mn>mx){let t=mn;mn=mx;mx=t}return {mn,mx};}
-function quotaBounds(){let mn=parseFloat(quotaMin.value),mx=parseFloat(quotaMax.value);if(isNaN(mn))mn=0;if(isNaN(mx))mx=Infinity;if(mn>mx){let t=mn;mn=mx;mx=t}return {mn,mx};}
-function suficiencia(x){return Math.max(0,Number(x.gap||0))}
-function pvtaCover(x){return Math.max(0,Number(x.pvta||0))}
-function gapNeto(x){return Math.max(0,suficiencia(x)-pvtaCover(x))}
-function classify(x){let b=nearBounds(), llego=x.pct>=1||x.gap<=0||x.avance>=x.cuota;if(llego&&!x.uso_v)return 'ganado_no_usado';if(llego&&x.uso_v)return 'ganado_usado';if(!llego&&x.pct>=b.mn&&x.pct<=b.mx)return 'cerca';return 'lejos';}
-function classifyRow(r){let b=nearBounds(), llego=r.pct>=1||r.gap<=0||r.avance>=r.cuota;if(llego&&r.uso_v==='NO')return 'ganado_no_usado';if(llego&&r.uso_v==='SI')return 'ganado_usado';if(!llego&&r.pct>=b.mn&&r.pct<=b.mx)return 'cerca';return 'lejos';}
-
-function refreshCascadingFilters(changed){
- if(!changed||changed==='init')fill('fSede',DATA.map(x=>x.sede),true);
- let baseGrupo=DATA.filter(x=>fSede.value==='Todos'||x.sede===fSede.value);
- fill('fGrupo',baseGrupo.map(x=>x.grupo),changed!=='sede');
- let baseVend=baseGrupo.filter(x=>fGrupo.value==='Todos'||x.grupo===fGrupo.value);
- fill('fVend',baseVend.map(x=>x.vendedor),changed!=='sede'&&changed!=='grupo');
- let baseDia=baseVend.filter(x=>fVend.value==='Todos'||x.vendedor===fVend.value);
- fill('fDia',baseDia.map(x=>x.dia),changed!=='sede'&&changed!=='grupo'&&changed!=='vend');
-}
-function resetFilters(){['fSede','fGrupo','fVend','fDia'].forEach(id=>document.getElementById(id).value='Todos');fSearch.value='';nearMin.value=80;nearMax.value=99;quotaMin.value='';quotaMax.value='';ACTIVE_SUPERVISOR='Todos';ACTIVE_VENDOR='Todos';cargarDatosAutomatico();}
-function getFilteredRows(){
- let sede=fSede.value,grupo=fGrupo.value,vend=fVend.value,dia=fDia.value,q=fSearch.value.toLowerCase().trim(),qb=quotaBounds();
- return DATA.filter(x=>(sede==='Todos'||x.sede===sede)&&(grupo==='Todos'||x.grupo===grupo)&&(vend==='Todos'||x.vendedor===vend)&&(dia==='Todos'||x.dia===dia)&&(Number(x.cuota||0)>=qb.mn&&Number(x.cuota||0)<=qb.mx)&&(!q||String(x.cliente).toLowerCase().includes(q)||String(x.nombre).toLowerCase().includes(q)));
-}
-function buildClients(rows){
- let m=new Map();
- rows.forEach(r=>{let key=r.cliente||(r.nombre+'|'+r.sede); if(!m.has(key))m.set(key,{cliente:r.cliente,nombre:r.nombre,sede:r.sede,grupo:new Set(),vendedor:new Set(),dia:new Set(),cuota:0,avance:0,gap:999999999,pct:0,uso_v:false,pvta:0});
- let x=m.get(key); x.grupo.add(r.grupo);x.vendedor.add(r.vendedor);x.dia.add(r.dia);x.cuota=Math.max(x.cuota,r.cuota);x.avance=Math.max(x.avance,r.avance);x.gap=Math.min(x.gap,r.gap);x.pct=Math.max(x.pct,r.pct);x.uso_v=x.uso_v||r.uso_v==='SI';x.pvta+=Number(r.pvta||0);});
- return Array.from(m.values()).map(x=>({...x,grupo:[...x.grupo].filter(Boolean).join(', '),vendedor:[...x.vendedor].filter(Boolean).join(', '),dia:[...x.dia].filter(Boolean).join(', '),gap:x.gap===999999999?0:x.gap}));
-}
-function buildClientsFromRows(rows){return rows.map(r=>({cliente:r.cliente,nombre:r.nombre,sede:r.sede,grupo:r.grupo,vendedor:r.vendedor,dia:r.dia,cuota:r.cuota,avance:r.avance,gap:r.gap,pct:r.pct,uso_v:r.uso_v==='SI',pvta:r.pvta}));}
-function newAgg(name){return {name,total:0,opp:0,used:0,cerca:0,lejos:0,sufCerca:0,pvtaCerca:0,netoCerca:0,sufLejos:0,pvtaLejos:0,netoLejos:0};}
-function addAgg(a,cl,suf,pvta){
- a.total++; if(cl==='ganado_no_usado')a.opp++; if(cl==='ganado_usado')a.used++;
- if(cl==='cerca'){a.cerca++;a.sufCerca+=suf;a.pvtaCerca+=pvta;a.netoCerca+=Math.max(0,suf-pvta);}
- if(cl==='lejos'){a.lejos++;a.sufLejos+=suf;a.pvtaLejos+=pvta;a.netoLejos+=Math.max(0,suf-pvta);}
-}
-function groupAgg(clients,key){let m=new Map();clients.forEach(c=>{let parts=String(c[key]||'Sin dato').split(',').map(s=>s.trim()).filter(Boolean);if(!parts.length)parts=['Sin dato'];let cl=classify(c);parts.forEach(p=>{if(!m.has(p))m.set(p,newAgg(p));addAgg(m.get(p),cl,suficiencia(c),pvtaCover(c));});});return Array.from(m.values()).sort((a,b)=>b.opp-a.opp||b.sufCerca-a.sufCerca||b.sufLejos-a.sufLejos);}
-function groupAggRows(rows,key){let m=new Map();rows.forEach(r=>{let p=String(r[key]||'Sin dato').trim()||'Sin dato';if(!m.has(p))m.set(p,newAgg(p));addAgg(m.get(p),classifyRow(r),suficiencia(r),pvtaCover(r));});return Array.from(m.values()).sort((a,b)=>b.opp-a.opp||b.sufCerca-a.sufCerca||b.sufLejos-a.sufLejos);}
-function safe(s){return String(s||'').replace(/\\/g,'\\\\').replace(/'/g,"\\'").replace(/"/g,'&quot;')}
-function renderAgg(id,rows,label){
- let isSup=id==='grupoTable',isVend=id==='vendTable',head='';
- if(isSup&&ACTIVE_SUPERVISOR!=='Todos')head='<span class="selected-filter">Supervisor: '+ACTIVE_SUPERVISOR+'</span><button class="btn2" style="padding:4px 8px;font-size:11px" onclick="clearSupervisorSelection()">Quitar</button>';
- if(isVend&&ACTIVE_VENDOR!=='Todos')head='<span class="selected-vendor">Vendedor: '+ACTIVE_VENDOR+'</span><button class="btn2" style="padding:4px 8px;font-size:11px;margin-left:6px" onclick="clearVendorSelection()">Quitar</button>';
- let s=head+'<table><thead><tr><th>'+label+'</th><th>Total</th><th>Ganó no usó</th><th>Cerca</th><th>Suf. cerca</th><th>PVTA cerca</th><th>Neto cerca</th><th>Lejos</th><th>Suf. lejos</th><th>PVTA lejos</th><th>Neto lejos</th></tr></thead><tbody>';
- s+=rows.slice(0,80).map(x=>{let click='',cls='';if(isSup){click="onclick=\"selectSupervisorFromRanking('"+safe(x.name)+"')\"";cls=ACTIVE_SUPERVISOR===x.name?'row-selected':'';}if(isVend){click="onclick=\"selectVendor('"+safe(x.name)+"')\"";cls=ACTIVE_VENDOR===x.name?'row-selected':'';}return '<tr class="'+cls+'" '+click+'><td>'+x.name+'</td><td class="num">'+fmt(x.total)+'</td><td class="num">'+fmt(x.opp)+'</td><td class="num">'+fmt(x.cerca)+'</td><td class="num">'+money2(x.sufCerca)+'</td><td class="num">'+money2(x.pvtaCerca)+'</td><td class="num">'+money2(x.netoCerca)+'</td><td class="num">'+fmt(x.lejos)+'</td><td class="num">'+money2(x.sufLejos)+'</td><td class="num">'+money2(x.pvtaLejos)+'</td><td class="num">'+money2(x.netoLejos)+'</td></tr>';}).join('');
- document.getElementById(id).innerHTML=s+'</tbody></table>';
-}
-function selectSupervisorFromRanking(s){ACTIVE_SUPERVISOR=s||'Todos';ACTIVE_VENDOR='Todos';render();}
-function clearSupervisorSelection(){ACTIVE_SUPERVISOR='Todos';ACTIVE_VENDOR='Todos';render();}
-function selectVendor(v){ACTIVE_VENDOR=v||'Todos';showDetail(CURRENT_TYPE,false);}
-function clearVendorSelection(){ACTIVE_VENDOR='Todos';showDetail(CURRENT_TYPE,false);}
-
-function render(){
- let rows=getFilteredRows();ROWS_FILTERED=rows;CLIENTS=buildClients(rows);
- let k={ganado_no_usado:0,ganado_usado:0,cerca:0,lejos:0,total:CLIENTS.length,cercaSuf:0,cercaPvta:0,lejosSuf:0,lejosPvta:0};
- CLIENTS.forEach(c=>{let cl=classify(c);k[cl]++;if(cl==='cerca'){k.cercaSuf+=suficiencia(c);k.cercaPvta+=pvtaCover(c)}if(cl==='lejos'){k.lejosSuf+=suficiencia(c);k.lejosPvta+=pvtaCover(c)}});
- k1.textContent=fmt(k.ganado_no_usado);k2.textContent=fmt(k.ganado_usado);k3.textContent=fmt(k.cerca);k4.textContent=fmt(k.lejos);k5.textContent=fmt(k.total);
- k3s.textContent='Suf. '+money2(k.cercaSuf)+' | PVTA '+money2(k.cercaPvta)+' | Neto '+money2(Math.max(0,k.cercaSuf-k.cercaPvta));
- k4s.textContent='Suf. '+money2(k.lejosSuf)+' | PVTA '+money2(k.lejosPvta)+' | Neto '+money2(Math.max(0,k.lejosSuf-k.lejosPvta));
- renderAgg('grupoTable',groupAgg(CLIENTS,'grupo'),'Supervisor / grupo');
- let rowBase=ACTIVE_SUPERVISOR==='Todos'?rows:rows.filter(r=>String(r.grupo||'').trim()===ACTIVE_SUPERVISOR);
- renderAgg('vendTable',groupAggRows(rowBase,'vendedor'),'Vendedor / visita');
- showDetail(CURRENT_TYPE,false);
-}
-function showDetail(type,resetSort=true){
- CURRENT_TYPE=type;if(resetSort){SORT_KEY=null;SORT_DIR=1}
- let title={ganado_no_usado:'🔥 Clientes que ganaron y NO usaron V',ganado_usado:'✅ Clientes que ganaron y usaron V',cerca:'🟡 Clientes cerca de ganar',lejos:'🔴 Clientes lejos',total:'👥 Todos los clientes'}[type]||'Detalle';
- detailTitle.textContent=title;
- let detailBase;
- if(ACTIVE_VENDOR!=='Todos'){let rd=ROWS_FILTERED.filter(r=>String(r.vendedor||'').trim()===ACTIVE_VENDOR);if(ACTIVE_SUPERVISOR!=='Todos')rd=rd.filter(r=>String(r.grupo||'').trim()===ACTIVE_SUPERVISOR);detailBase=buildClientsFromRows(rd);}
- else{detailBase=ACTIVE_SUPERVISOR==='Todos'?CLIENTS:CLIENTS.filter(c=>String(c.grupo||'').split(',').map(s=>s.trim()).includes(ACTIVE_SUPERVISOR));}
- CURRENT_DETAIL=detailBase.filter(c=>type==='total'||classify(c)===type);
- if(SORT_KEY!==null)CURRENT_DETAIL.sort((a,b)=>compareVal(a,b,SORT_KEY)*SORT_DIR);
- detailInfo.textContent='Mostrando '+fmt(CURRENT_DETAIL.length)+' registros.';
- activeBadges.innerHTML=(ACTIVE_SUPERVISOR!=='Todos'?'<span class="selected-filter">Supervisor: '+ACTIVE_SUPERVISOR+'</span>':'')+(ACTIVE_VENDOR!=='Todos'?'<span class="selected-vendor">Vendedor: '+ACTIVE_VENDOR+'</span>':'');
- let rows=CURRENT_DETAIL.slice(0,1000).map(c=>'<tr><td>'+c.cliente+'</td><td>'+c.nombre+'</td><td>'+c.sede+'</td><td>'+c.grupo+'</td><td>'+c.vendedor+'</td><td>'+c.dia+'</td><td class="num">'+money2(c.cuota)+'</td><td class="num">'+money2(c.avance)+'</td><td class="num">'+money2(c.gap)+'</td><td class="num">'+pct2(c.pct)+'</td><td class="num">'+money2(suficiencia(c))+'</td><td class="num">'+money2(pvtaCover(c))+'</td><td class="num">'+money2(gapNeto(c))+'</td><td>'+badge(classify(c).replaceAll('_',' '),classify(c)==='ganado_no_usado'?'b-red':classify(c)==='ganado_usado'?'b-green':classify(c)==='cerca'?'b-orange':'b-blue')+'</td></tr>');
- let headers=['Cliente','Nombre','Sede','Supervisor/grupo','Cod vendedor','Día','Cuota','Avance','Gap','% avance','Suficiencia','PVTA','Gap neto','Estado'];
- detailTable.innerHTML='<table><thead><tr>'+headers.map((h,i)=>'<th onclick="sortDetail('+i+')">'+h+'</th>').join('')+'</tr></thead><tbody>'+rows.join('')+'</tbody></table>';
-}
-function compareVal(a,b,i){let keys=['cliente','nombre','sede','grupo','vendedor','dia','cuota','avance','gap','pct','suf','pvta','neto','estado'];let key=keys[i],av,bv;if(key==='suf'){av=suficiencia(a);bv=suficiencia(b)}else if(key==='neto'){av=gapNeto(a);bv=gapNeto(b)}else if(key==='estado'){av=classify(a);bv=classify(b)}else{av=a[key];bv=b[key]}if(typeof av==='number'||typeof bv==='number')return (+av||0)-(+bv||0);return String(av||'').localeCompare(String(bv||''),'es')}
-function sortDetail(i){SORT_DIR=SORT_KEY===i?-SORT_DIR:1;SORT_KEY=i;showDetail(CURRENT_TYPE,false)}
-function exportDetail(){
- let rows=CURRENT_DETAIL.map(c=>({Cliente:c.cliente,Nombre:c.nombre,Sede:c.sede,Supervisor_Grupo:c.grupo,Cod_Vendedor:c.vendedor,Dia:c.dia,Cuota:Number((c.cuota||0).toFixed(2)),Avance:Number((c.avance||0).toFixed(2)),Gap:Number((c.gap||0).toFixed(2)),Porcentaje_Avance:Number((c.pct||0).toFixed(4)),Suficiencia:Number(suficiencia(c).toFixed(2)),PVTA:Number(pvtaCover(c).toFixed(2)),Gap_Neto:Number(gapNeto(c).toFixed(2)),Estado:classify(c)}));
- if(!rows.length){alert('No hay registros para exportar.');return}
- const ws=XLSX.utils.json_to_sheet(rows);const range=XLSX.utils.decode_range(ws['!ref']);
- for(let R=1;R<=range.e.r;R++){['G','H','I','K','L','M'].forEach(col=>{let cell=ws[col+(R+1)];if(cell)cell.z='#,##0.00'});let pc=ws['J'+(R+1)];if(pc)pc.z='0.00%'}
- ws['!cols']=[{wch:14},{wch:36},{wch:16},{wch:28},{wch:18},{wch:14},{wch:14},{wch:14},{wch:14},{wch:13},{wch:14},{wch:14},{wch:14},{wch:22}];
- const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,'Detalle');XLSX.writeFile(wb,'detalle_rebates.xlsx');
-}
-
-
-
-
-
-/* ===== OVERRIDE ROBUSTO DE COLUMNAS/FILTROS ===== */
-function normKey2(s){
-  return String(s||'')
-    .replace(/^\uFEFF/, '')
-    .trim()
-    .toLowerCase()
-    .normalize('NFD').replace(/[\u0300-\u036f]/g,'')
-    .replace(/[¿?]/g,'')
-    .replace(/[_\-./]+/g,' ')
-    .replace(/\s+/g,' ');
-}
-function firstByCandidates(row, candidates){
-  const keys = Object.keys(row || {});
-  const normMap = {};
-  keys.forEach(k => normMap[normKey2(k)] = row[k]);
-
-  for(const c of candidates){
-    const v = normMap[normKey2(c)];
-    if(v !== undefined && v !== null && String(v).trim() !== '') return v;
-  }
-
-  for(const k of keys){
-    const nk = normKey2(k);
-    for(const c of candidates){
-      const nc = normKey2(c);
-      if(nk.includes(nc) || nc.includes(nk)){
-        const v = row[k];
-        if(v !== undefined && v !== null && String(v).trim() !== '') return v;
-      }
-    }
-  }
+function normKey(s){return String(s||'').replace(/^\uFEFF/,'').trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[¿?]/g,'').replace(/[_\-./]+/g,' ').replace(/\s+/g,' ')}
+function pick(row, candidates){
+  const keys=Object.keys(row||{}), map={}; keys.forEach(k=>map[normKey(k)]=row[k]);
+  for(const c of candidates){const v=map[normKey(c)]; if(v!==undefined && v!==null && String(v).trim()!=='') return v}
+  for(const k of keys){const nk=normKey(k); for(const c of candidates){const nc=normKey(c); if(nk.includes(nc)||nc.includes(nk)){const v=row[k]; if(v!==undefined&&v!==null&&String(v).trim()!=='') return v}}}
   return '';
 }
-function toNumber2(x){
-  if(x === null || x === undefined || x === '') return 0;
-  if(typeof x === 'number') return x;
-  let s = String(x).trim().replace(/S\/|\s/g,'');
-  if(s.includes(',') && s.includes('.')){
-    s = s.replace(/\./g,'').replace(',', '.');
-  }else if(s.includes(',') && !s.includes('.')){
-    s = s.replace(',', '.');
-  }
-  s = s.replace(/[^0-9.\-]/g,'');
-  const n = parseFloat(s);
-  return isNaN(n) ? 0 : n;
+function toNum(x){
+  if(x===null||x===undefined||x==='')return 0; if(typeof x==='number')return x;
+  let s=String(x).trim().replace(/S\/|\s/g,'');
+  if(s.includes(',')&&s.includes('.')) s=s.replace(/\./g,'').replace(',','.');
+  else if(s.includes(',')&&!s.includes('.')) s=s.replace(',','.');
+  s=s.replace(/[^0-9.\-]/g,''); const n=parseFloat(s); return isNaN(n)?0:n;
 }
 function mapRow(r){
-  const vendedor = String(firstByCandidates(r, ['Vendedor','Cod Vendedor','Codigo Vendedor','Código Vendedor','FuerzaVentas','Fuerza Ventas','FV','CodVend','COD VEND']) || '').trim();
-  const cliente = String(firstByCandidates(r, ['Cliente','Codigo Cliente','Código Cliente','Cod Cliente','ClienteCodigo','Cliente Codigo','Cod Cte','Código Cte','COD CLIENTE','Cliente Cod']) || '').trim();
-  const nombre = String(firstByCandidates(r, ['Nombre Cliente','Cliente Nombre','Razon Social','Razón Social','Nombre','NOMBRE','Cliente']) || '').trim();
-  const dia = String(firstByCandidates(r, ['DiaDeSemana','Dia de Semana','Día de Semana','Dia','Día','DIA','DIA SEMANA']) || '').trim();
-  const grupo = String(firstByCandidates(r, ['grupoventas','GrupoVentas','Grupo Ventas','Grupo','Supervisor','SUPERVISOR','Jefe','Mesa','MESA','Jefe Ventas']) || '').trim();
-  const sede = String(firstByCandidates(r, ['SUCURSAL','Sucursal','sucursal','Sede','SEDE','Local','Centro']) || '').trim();
-
-  const cuota = toNumber2(firstByCandidates(r, ['CUOTA REBATE','Cuota Rebate','Cuota','Plan','Cuota Reb','OBJETIVO']));
-  const avance = toNumber2(firstByCandidates(r, ['AV REBATE','Av Rebate','Avance Rebate','Avance','Venta','Venta Rebate']));
-  const gap = toNumber2(firstByCandidates(r, ['FALTA REBATE','Falta Rebate','Gap','Faltante','Falta']));
-  let pct = toNumber2(firstByCandidates(r, ['%AVANCE','% Avance','Porcentaje avance','Pct Avance','Avance %']));
-  if(pct > 3) pct = pct / 100;
-  if(!pct && cuota) pct = avance / cuota;
-
-  const usoRaw = String(firstByCandidates(r, ['¿Usó la V?','Uso la V?','Usó la V?','Uso V','USO V','Uso Beneficio','Uso']) || 'NO').trim().toUpperCase();
-  const pvta = toNumber2(firstByCandidates(r, ['PVTA','pvta','Pvta','Preventa','PREVENTA','Preventa Hoy','PREVENTA HOY','Pre Venta']));
-
-  return {
-    vendedor, cliente, nombre, dia, grupo, sede,
-    uso_v: usoRaw.startsWith('S') ? 'SI' : 'NO',
-    cuota, avance, gap, pct, pvta
-  };
+  const vendedor=String(pick(r,['Vendedor','Cod Vendedor','Codigo Vendedor','Código Vendedor','FuerzaVentas','Fuerza Ventas','FV','COD VEND'])).trim();
+  const cliente=String(pick(r,['Cliente','Codigo Cliente','Código Cliente','Cod Cliente','ClienteCodigo','Cliente Codigo','Cod Cte','Código Cte','COD CLIENTE'])).trim();
+  const nombre=String(pick(r,['Nombre Cliente','Cliente Nombre','Razon Social','Razón Social','Nombre','NOMBRE','Cliente Nombre Comercial'])).trim();
+  const dia=String(pick(r,['DiaDeSemana','Dia de Semana','Día de Semana','Dia','Día','DIA','DIA SEMANA'])).trim();
+  const grupo=String(pick(r,['grupoventas','GrupoVentas','Grupo Ventas','Grupo','Supervisor','SUPERVISOR','Jefe','Mesa','MESA','Jefe Ventas'])).trim();
+  const sede=String(pick(r,['SUCURSAL','Sucursal','sucursal','Sede','SEDE','Local','Centro'])).trim();
+  const cuota=toNum(pick(r,['CUOTA REBATE','Cuota Rebate','Cuota','Plan','OBJETIVO']));
+  const avance=toNum(pick(r,['AV REBATE','Av Rebate','Avance Rebate','Avance','Venta','Venta Rebate']));
+  const gap=toNum(pick(r,['FALTA REBATE','Falta Rebate','Gap','Faltante','Falta']));
+  let pct=toNum(pick(r,['%AVANCE','% Avance','Porcentaje avance','Pct Avance','Avance %']));
+  if(pct>3)pct=pct/100; if(!pct&&cuota)pct=avance/cuota;
+  const usoRaw=String(pick(r,['¿Usó la V?','Uso la V?','Usó la V?','Uso V','USO V','Uso Beneficio','Uso'])||'NO').trim().toUpperCase();
+  const pvta=toNum(pick(r,['PVTA','pvta','Pvta','Preventa','PREVENTA','Preventa Hoy','PREVENTA HOY','Pre Venta']));
+  return {vendedor,cliente,nombre,dia,grupo,sede,cuota,avance,gap,pct,pvta,uso_v:usoRaw.startsWith('S')?'SI':'NO'}
 }
-function uniq(arr){
-  const vals = Array.from(new Set((arr||[]).map(x=>String(x||'').trim()).filter(Boolean))).sort((a,b)=>a.localeCompare(b,'es'));
-  return ['Todos', ...vals];
+function fmt(n){return (n||0).toLocaleString('es-PE')}
+function money(n){return 'S/ '+(n||0).toLocaleString('es-PE',{minimumFractionDigits:2,maximumFractionDigits:2})}
+function pct(n){return ((n||0)*100).toLocaleString('es-PE',{minimumFractionDigits:2,maximumFractionDigits:2})+'%'}
+function badge(t,c){return '<span class="badge '+c+'">'+t+'</span>'}
+function uniq(arr){return ['Todos',...Array.from(new Set((arr||[]).map(x=>String(x||'').trim()).filter(Boolean))).sort((a,b)=>a.localeCompare(b,'es'))]}
+function fill(id,arr,preserve=true){const el=document.getElementById(id);const cur=preserve?(el.value||'Todos'):'Todos';const vals=uniq(arr);el.innerHTML=vals.map(x=>'<option value="'+String(x).replaceAll('"','&quot;')+'">'+x+'</option>').join('');el.value=vals.includes(cur)?cur:'Todos'}
+function nearBounds(){let mn=parseFloat(nearMin.value||80)/100,mx=parseFloat(nearMax.value||99)/100;if(isNaN(mn))mn=.8;if(isNaN(mx))mx=.99;if(mn>mx){let t=mn;mn=mx;mx=t}return{mn,mx}}
+function quotaBounds(){let mn=parseFloat(quotaMin.value),mx=parseFloat(quotaMax.value);if(isNaN(mn))mn=0;if(isNaN(mx))mx=Infinity;if(mn>mx){let t=mn;mn=mx;mx=t}return{mn,mx}}
+function suficiencia(x){return Math.max(0,Number(x.gap||0))} function pvtaCover(x){return Math.max(0,Number(x.pvta||0))} function gapNeto(x){return Math.max(0,suficiencia(x)-pvtaCover(x))}
+function classify(x){let b=nearBounds(),l=x.pct>=1||x.gap<=0||x.avance>=x.cuota;if(l&&!x.uso_v)return'ganado_no_usado';if(l&&x.uso_v)return'ganado_usado';if(!l&&x.pct>=b.mn&&x.pct<=b.mx)return'cerca';return'lejos'}
+function classifyRow(r){let b=nearBounds(),l=r.pct>=1||r.gap<=0||r.avance>=r.cuota;if(l&&r.uso_v==='NO')return'ganado_no_usado';if(l&&r.uso_v==='SI')return'ganado_usado';if(!l&&r.pct>=b.mn&&r.pct<=b.mx)return'cerca';return'lejos'}
+
+function refreshFilters(changed){
+  if(!changed||changed==='init')fill('fSede',DATA.map(x=>x.sede),true);
+  const s=fSede.value||'Todos'; let bg=DATA.filter(x=>s==='Todos'||x.sede===s); fill('fGrupo',bg.map(x=>x.grupo),changed!=='sede');
+  const g=fGrupo.value||'Todos'; let bv=bg.filter(x=>g==='Todos'||x.grupo===g); fill('fVend',bv.map(x=>x.vendedor),changed!=='sede'&&changed!=='grupo');
+  const v=fVend.value||'Todos'; let bd=bv.filter(x=>v==='Todos'||x.vendedor===v); fill('fDia',bd.map(x=>x.dia),changed!=='sede'&&changed!=='grupo'&&changed!=='vend');
 }
-function fill(id, arr, preserve=true){
-  const el = document.getElementById(id);
-  if(!el) return;
-  const cur = preserve ? (el.value || 'Todos') : 'Todos';
-  const vals = uniq(arr);
-  el.innerHTML = vals.map(x=>'<option value="'+String(x).replaceAll('"','&quot;')+'">'+x+'</option>').join('');
-  el.value = vals.includes(cur) ? cur : 'Todos';
-  if(!el.value && vals.length) el.value = vals[0];
-}
-function refreshCascadingFilters(changed){
-  if(!changed || changed==='init') fill('fSede', DATA.map(x=>x.sede), true);
+function getRows(){const qb=quotaBounds(),s=fSede.value,g=fGrupo.value,v=fVend.value,d=fDia.value,q=fSearch.value.toLowerCase().trim();return DATA.filter(x=>(s==='Todos'||x.sede===s)&&(g==='Todos'||x.grupo===g)&&(v==='Todos'||x.vendedor===v)&&(d==='Todos'||x.dia===d)&&x.cuota>=qb.mn&&x.cuota<=qb.mx&&(!q||String(x.cliente).toLowerCase().includes(q)||String(x.nombre).toLowerCase().includes(q)))}
+function buildClients(rows){const m=new Map();rows.forEach(r=>{const key=r.cliente||r.nombre+'|'+r.sede;if(!m.has(key))m.set(key,{cliente:r.cliente,nombre:r.nombre,sede:r.sede,grupo:new Set(),vendedor:new Set(),dia:new Set(),cuota:0,avance:0,gap:999999999,pct:0,pvta:0,uso_v:false});const x=m.get(key);x.grupo.add(r.grupo);x.vendedor.add(r.vendedor);x.dia.add(r.dia);x.cuota=Math.max(x.cuota,r.cuota);x.avance=Math.max(x.avance,r.avance);x.gap=Math.min(x.gap,r.gap);x.pct=Math.max(x.pct,r.pct);x.pvta+=r.pvta;x.uso_v=x.uso_v||r.uso_v==='SI'});return Array.from(m.values()).map(x=>({...x,grupo:[...x.grupo].filter(Boolean).join(', '),vendedor:[...x.vendedor].filter(Boolean).join(', '),dia:[...x.dia].filter(Boolean).join(', '),gap:x.gap===999999999?0:x.gap}))}
+function rowObjects(rows){return rows.map(r=>({...r,uso_v:r.uso_v==='SI'}))}
+function newAgg(name){return{name,total:0,opp:0,used:0,cerca:0,lejos:0,sufCerca:0,pvtaCerca:0,netoCerca:0,sufLejos:0,pvtaLejos:0,netoLejos:0}}
+function addAgg(a,cl,s,p){a.total++;if(cl==='ganado_no_usado')a.opp++;if(cl==='ganado_usado')a.used++;if(cl==='cerca'){a.cerca++;a.sufCerca+=s;a.pvtaCerca+=p;a.netoCerca+=Math.max(0,s-p)}if(cl==='lejos'){a.lejos++;a.sufLejos+=s;a.pvtaLejos+=p;a.netoLejos+=Math.max(0,s-p)}}
+function aggClients(clients,key){const m=new Map();clients.forEach(c=>{let parts=String(c[key]||'Sin dato').split(',').map(x=>x.trim()).filter(Boolean);if(!parts.length)parts=['Sin dato'];let cl=classify(c);parts.forEach(p=>{if(!m.has(p))m.set(p,newAgg(p));addAgg(m.get(p),cl,suficiencia(c),pvtaCover(c))})});return Array.from(m.values()).sort((a,b)=>b.opp-a.opp||b.sufCerca-a.sufCerca)}
+function aggRows(rows,key){const m=new Map();rows.forEach(r=>{let p=String(r[key]||'Sin dato').trim()||'Sin dato';if(!m.has(p))m.set(p,newAgg(p));addAgg(m.get(p),classifyRow(r),suficiencia(r),pvtaCover(r))});return Array.from(m.values()).sort((a,b)=>b.opp-a.opp||b.sufCerca-a.sufCerca)}
+function safe(s){return String(s||'').replace(/\\/g,'\\\\').replace(/'/g,"\\'").replace(/"/g,'&quot;')}
+function renderAgg(id,rows,label){let sup=id==='grupoTable',ven=id==='vendTable',head='';if(sup&&ACTIVE_SUPERVISOR!=='Todos')head='<span class="selected-filter">Supervisor: '+ACTIVE_SUPERVISOR+'</span>';if(ven&&ACTIVE_VENDOR!=='Todos')head='<span class="selected-vendor">Vendedor: '+ACTIVE_VENDOR+'</span>';let h=head+'<table><thead><tr><th>'+label+'</th><th>Total</th><th>Ganó no usó</th><th>Cerca</th><th>Suf. cerca</th><th>PVTA cerca</th><th>Neto cerca</th><th>Lejos</th><th>Suf. lejos</th><th>PVTA lejos</th><th>Neto lejos</th></tr></thead><tbody>';h+=rows.slice(0,80).map(x=>{let click='',cls='';if(sup){click="onclick=\"selectSupervisor('"+safe(x.name)+"')\"";cls=ACTIVE_SUPERVISOR===x.name?'row-selected':''}if(ven){click="onclick=\"selectVendor('"+safe(x.name)+"')\"";cls=ACTIVE_VENDOR===x.name?'row-selected':''}return'<tr class="'+cls+'" '+click+'><td>'+x.name+'</td><td class="num">'+fmt(x.total)+'</td><td class="num">'+fmt(x.opp)+'</td><td class="num">'+fmt(x.cerca)+'</td><td class="num">'+money(x.sufCerca)+'</td><td class="num">'+money(x.pvtaCerca)+'</td><td class="num">'+money(x.netoCerca)+'</td><td class="num">'+fmt(x.lejos)+'</td><td class="num">'+money(x.sufLejos)+'</td><td class="num">'+money(x.pvtaLejos)+'</td><td class="num">'+money(x.netoLejos)+'</td></tr>'}).join('');document.getElementById(id).innerHTML=h+'</tbody></table>'}
+function selectSupervisor(s){ACTIVE_SUPERVISOR=s;ACTIVE_VENDOR='Todos';render()} function selectVendor(v){ACTIVE_VENDOR=v;showDetail(CURRENT_TYPE,false)}
+function resetFilters(){['fSede','fGrupo','fVend','fDia'].forEach(id=>document.getElementById(id).value='Todos');fSearch.value='';nearMin.value=80;nearMax.value=99;quotaMin.value='';quotaMax.value='';ACTIVE_SUPERVISOR='Todos';ACTIVE_VENDOR='Todos';refreshFilters('init');render()}
 
-  const sedeVal = document.getElementById('fSede')?.value || 'Todos';
-  const baseGrupo = DATA.filter(x => sedeVal==='Todos' || x.sede===sedeVal);
-  fill('fGrupo', baseGrupo.map(x=>x.grupo), changed!=='sede');
+function render(){ROWS_FILTERED=getRows();CLIENTS=buildClients(ROWS_FILTERED);let k={ganado_no_usado:0,ganado_usado:0,cerca:0,lejos:0,total:CLIENTS.length,cercaSuf:0,cercaPvta:0,lejosSuf:0,lejosPvta:0};CLIENTS.forEach(c=>{let cl=classify(c);k[cl]++;if(cl==='cerca'){k.cercaSuf+=suficiencia(c);k.cercaPvta+=pvtaCover(c)}if(cl==='lejos'){k.lejosSuf+=suficiencia(c);k.lejosPvta+=pvtaCover(c)}});k1.textContent=fmt(k.ganado_no_usado);k2.textContent=fmt(k.ganado_usado);k3.textContent=fmt(k.cerca);k4.textContent=fmt(k.lejos);k5.textContent=fmt(k.total);k3s.textContent='Suf. '+money(k.cercaSuf)+' | PVTA '+money(k.cercaPvta);k4s.textContent='Suf. '+money(k.lejosSuf)+' | PVTA '+money(k.lejosPvta);renderAgg('grupoTable',aggClients(CLIENTS,'grupo'),'Supervisor / grupo');let rb=ACTIVE_SUPERVISOR==='Todos'?ROWS_FILTERED:ROWS_FILTERED.filter(r=>r.grupo===ACTIVE_SUPERVISOR);renderAgg('vendTable',aggRows(rb,'vendedor'),'Vendedor / visita');showDetail(CURRENT_TYPE,false)}
+function showSufCols(){return CURRENT_TYPE!=='ganado_no_usado'}
+function showDetail(type,reset=true){CURRENT_TYPE=type;if(reset){SORT_KEY=null;SORT_DIR=1}let base;if(ACTIVE_VENDOR!=='Todos'){let rd=ROWS_FILTERED.filter(r=>r.vendedor===ACTIVE_VENDOR);if(ACTIVE_SUPERVISOR!=='Todos')rd=rd.filter(r=>r.grupo===ACTIVE_SUPERVISOR);base=rowObjects(rd)}else{base=ACTIVE_SUPERVISOR==='Todos'?CLIENTS:CLIENTS.filter(c=>String(c.grupo).split(',').map(s=>s.trim()).includes(ACTIVE_SUPERVISOR))}CURRENT_DETAIL=base.filter(c=>type==='total'||classify(c)===type);detailTitle.textContent=({ganado_no_usado:'🔥 Clientes que ganaron y NO usaron V',ganado_usado:'✅ Clientes que ganaron y usaron V',cerca:'🟡 Clientes cerca',lejos:'🔴 Clientes lejos',total:'👥 Clientes'}[type]||'Clientes');detailInfo.textContent='Mostrando '+fmt(CURRENT_DETAIL.length)+' registros';activeBadges.innerHTML=(ACTIVE_SUPERVISOR!=='Todos'?'<span class="selected-filter">Supervisor: '+ACTIVE_SUPERVISOR+'</span>':'')+(ACTIVE_VENDOR!=='Todos'?'<span class="selected-vendor">Vendedor: '+ACTIVE_VENDOR+'</span>':'');let show=showSufCols();let headers=show?['Cliente','Nombre','Cod vendedor','Día','Cuota','Avance','Gap','% avance','Suficiencia','PVTA','Gap neto','Estado']:['Cliente','Nombre','Cod vendedor','Día','Cuota','Avance','Gap','% avance','PVTA','Estado'];let rows=CURRENT_DETAIL.slice(0,1000).map(c=>{let e=badge(classify(c).replaceAll('_',' '),classify(c)==='ganado_no_usado'?'b-red':classify(c)==='ganado_usado'?'b-green':classify(c)==='cerca'?'b-orange':'b-blue');if(show)return'<tr><td>'+c.cliente+'</td><td>'+c.nombre+'</td><td>'+c.vendedor+'</td><td>'+c.dia+'</td><td class="num">'+money(c.cuota)+'</td><td class="num">'+money(c.avance)+'</td><td class="num">'+money(c.gap)+'</td><td class="num">'+pct(c.pct)+'</td><td class="num">'+money(suficiencia(c))+'</td><td class="num">'+money(pvtaCover(c))+'</td><td class="num">'+money(gapNeto(c))+'</td><td>'+e+'</td></tr>';return'<tr><td>'+c.cliente+'</td><td>'+c.nombre+'</td><td>'+c.vendedor+'</td><td>'+c.dia+'</td><td class="num">'+money(c.cuota)+'</td><td class="num">'+money(c.avance)+'</td><td class="num">'+money(c.gap)+'</td><td class="num">'+pct(c.pct)+'</td><td class="num">'+money(pvtaCover(c))+'</td><td>'+e+'</td></tr>'});detailTable.innerHTML='<table><thead><tr>'+headers.map(h=>'<th>'+h+'</th>').join('')+'</tr></thead><tbody>'+rows.join('')+'</tbody></table>'}
+function exportDetail(){let rows=CURRENT_DETAIL.map(c=>{let o={Cliente:c.cliente,Nombre:c.nombre,Cod_Vendedor:c.vendedor,Dia:c.dia,Cuota:+(c.cuota||0).toFixed(2),Avance:+(c.avance||0).toFixed(2),Gap:+(c.gap||0).toFixed(2),Porcentaje_Avance:+(c.pct||0).toFixed(4),PVTA:+pvtaCover(c).toFixed(2),Estado:classify(c)};if(showSufCols()){o.Suficiencia=+suficiencia(c).toFixed(2);o.Gap_Neto=+gapNeto(c).toFixed(2)}return o});if(!rows.length){alert('No hay registros');return}let ws=XLSX.utils.json_to_sheet(rows),wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,'Detalle');XLSX.writeFile(wb,'detalle_rebates.xlsx')}
+async function captureDetailImage(){let target=document.querySelector('.card.full');let canvas=await html2canvas(target,{backgroundColor:'#fff',scale:2});canvas.toBlob(async blob=>{let file=new File([blob],'clientes_rebates.png',{type:'image/png'});if(navigator.canShare&&navigator.canShare({files:[file]})){await navigator.share({files:[file],title:'Clientes Rebates'});return}let a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='clientes_rebates.png';a.click()})}
 
-  const grupoVal = document.getElementById('fGrupo')?.value || 'Todos';
-  const baseVend = baseGrupo.filter(x => grupoVal==='Todos' || x.grupo===grupoVal);
-  fill('fVend', baseVend.map(x=>x.vendedor), changed!=='sede' && changed!=='grupo');
-
-  const vendVal = document.getElementById('fVend')?.value || 'Todos';
-  const baseDia = baseVend.filter(x => vendVal==='Todos' || x.vendedor===vendVal);
-  fill('fDia', baseDia.map(x=>x.dia), changed!=='sede' && changed!=='grupo' && changed!=='vend');
-}
-/* ===== FIN OVERRIDE ROBUSTO ===== */
-
-async function cargarDatosAutomatico(){
-  const setStatus = (txt, cls='') => {
-    const el = document.getElementById('autoLoadStatus');
-    if(el){ el.textContent = txt; el.className = 'note ' + cls; }
-  };
-
-  try{
-    setStatus('Cargando datos desde reembolsos.csv...');
-    const res = await fetch('reembolsos.csv?v=' + Date.now(), {cache:'no-store'});
-    if(!res.ok) throw new Error('No se encontró reembolsos.csv. Código: ' + res.status);
-
-    const text = await res.text();
-
-    let parsed = Papa.parse(text, {
-      header:true,
-      skipEmptyLines:true,
-      dynamicTyping:false,
-      delimitersToGuess:[',',';','\t','|']
-    });
-
-    if(parsed.meta && parsed.meta.fields && parsed.meta.fields.length <= 1){
-      parsed = Papa.parse(text, {header:true, skipEmptyLines:true, dynamicTyping:false, delimiter:';'});
-    }
-
-    if(!parsed.data || !parsed.data.length){
-      throw new Error('CSV vacío o no reconocido.');
-    }
-
-    const fields = parsed.meta && parsed.meta.fields ? parsed.meta.fields : Object.keys(parsed.data[0] || {});
-    console.log('Columnas CSV detectadas:', fields);
-
-    DATA = parsed.data.map(mapRow).filter(x => x.cliente || x.nombre);
-    console.log('Muestra mapeada:', DATA.slice(0,3));
-    const dimOk = DATA.some(x => x.sede || x.grupo || x.vendedor || x.dia);
-    if(!dimOk){
-      const fields = parsed.meta && parsed.meta.fields ? parsed.meta.fields : Object.keys(parsed.data[0] || {});
-      const msg = 'Se cargaron filas, pero las columnas de filtros están vacías. Columnas detectadas: ' + fields.slice(0,15).join(' | ');
-      console.warn(msg);
-      const el = document.getElementById('autoLoadStatus');
-      if(el) el.textContent = msg;
-    }
-
-    if(!DATA.length){
-      const msg = 'CSV leído, pero no se encontraron clientes. Columnas detectadas: ' + fields.slice(0,12).join(' | ');
-      console.error(msg);
-      setStatus(msg, 'loadingBad');
-      alert(msg);
-      return;
-    }
-
-    ACTIVE_SUPERVISOR='Todos';
-    ACTIVE_VENDOR='Todos';
-    cargarDatosAutomatico();
-
-    setStatus('Datos actualizados desde reembolsos.csv: ' + DATA.length.toLocaleString('es-PE') + ' filas', 'loadingOk');
-  }catch(e){
-    console.error(e);
-    setStatus('No se pudo cargar reembolsos.csv: ' + e.message, 'loadingBad');
-    alert('No se pudo cargar reembolsos.csv: ' + e.message);
-  }
-}
-
-excelFile.addEventListener('change',e=>{let f=e.target.files[0];if(!f)return;let reader=new FileReader();reader.onload=ev=>{let wb=XLSX.read(new Uint8Array(ev.target.result),{type:'array'});let ws=wb.Sheets[wb.SheetNames[0]];let raw=XLSX.utils.sheet_to_json(ws,{defval:''});DATA=raw.map(mapRow).filter(x=>x.cliente||x.nombre);if(!DATA.length){alert('No se leyeron datos válidos.');return}resetFilters();};reader.readAsArrayBuffer(f);});
-fSede.addEventListener('change',()=>{ACTIVE_SUPERVISOR='Todos';ACTIVE_VENDOR='Todos';refreshCascadingFilters('sede');render()});
-fGrupo.addEventListener('change',()=>{ACTIVE_SUPERVISOR='Todos';ACTIVE_VENDOR='Todos';refreshCascadingFilters('grupo');render()});
-fVend.addEventListener('change',()=>{ACTIVE_VENDOR='Todos';refreshCascadingFilters('vend');render()});
-fDia.addEventListener('change',render);fSearch.addEventListener('input',render);nearMin.addEventListener('input',render);nearMax.addEventListener('input',render);quotaMin.addEventListener('input',render);quotaMax.addEventListener('input',render);
-cargarDatosAutomatico();
+function loadCSVText(text){let parsed=Papa.parse(text,{header:true,skipEmptyLines:true,dynamicTyping:false,delimitersToGuess:[',',';','\t','|']});if(parsed.meta.fields&&parsed.meta.fields.length<=1)parsed=Papa.parse(text,{header:true,skipEmptyLines:true,dynamicTyping:false,delimiter:';'});DATA=parsed.data.map(mapRow).filter(x=>x.cliente||x.nombre);console.log('Columnas:',parsed.meta.fields,'Muestra:',DATA.slice(0,3));if(!DATA.length){autoLoadStatus.textContent='CSV leído, pero no encontró clientes. Revisa columnas.';autoLoadStatus.className='note loadingBad';alert('CSV leído, pero no encontró clientes.');return}refreshFilters('init');render();autoLoadStatus.textContent='Datos actualizados desde reembolsos.csv: '+fmt(DATA.length)+' filas';autoLoadStatus.className='note loadingOk'}
+async function cargarDatos(){try{autoLoadStatus.textContent='Cargando datos desde reembolsos.csv...';let r=await fetch('reembolsos.csv?v='+Date.now(),{cache:'no-store'});if(!r.ok)throw new Error(r.status);loadCSVText(await r.text())}catch(e){autoLoadStatus.textContent='No se pudo cargar reembolsos.csv: '+e.message;autoLoadStatus.className='note loadingBad'}}
+manualFile.addEventListener('change',e=>{let f=e.target.files[0];if(!f)return;if(f.name.toLowerCase().endsWith('.csv')){let rd=new FileReader();rd.onload=ev=>loadCSVText(ev.target.result);rd.readAsText(f,'UTF-8')}else{let rd=new FileReader();rd.onload=ev=>{let wb=XLSX.read(new Uint8Array(ev.target.result),{type:'array'}),ws=wb.Sheets[wb.SheetNames[0]],raw=XLSX.utils.sheet_to_json(ws,{defval:''});DATA=raw.map(mapRow).filter(x=>x.cliente||x.nombre);refreshFilters('init');render();autoLoadStatus.textContent='Datos cargados manualmente: '+fmt(DATA.length)+' filas'};rd.readAsArrayBuffer(f)}})
+fSede.addEventListener('change',()=>{ACTIVE_SUPERVISOR='Todos';ACTIVE_VENDOR='Todos';refreshFilters('sede');render()});fGrupo.addEventListener('change',()=>{ACTIVE_SUPERVISOR='Todos';ACTIVE_VENDOR='Todos';refreshFilters('grupo');render()});fVend.addEventListener('change',()=>{ACTIVE_VENDOR='Todos';refreshFilters('vend');render()});fDia.addEventListener('change',render);fSearch.addEventListener('input',render);nearMin.addEventListener('input',render);nearMax.addEventListener('input',render);quotaMin.addEventListener('input',render);quotaMax.addEventListener('input',render);
+cargarDatos();
 </script>
 </body>
 </html>
