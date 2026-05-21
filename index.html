@@ -108,7 +108,7 @@ table{min-width:980px}#detailTable table{min-width:850px}
   </div>
 
   <div class="kpis">
-    <div class="card kpi" onclick="showDetail('ganado_no_usado')"><div class="title">🔥 Ganó y no usó V</div><div id="k1" class="value">0</div><div class="submetric">Solo llegó plan y NO usó V</div></div>
+    <div class="card kpi" onclick="showDetail('ganado_no_usado')"><div class="title">🔥 Ganó y no usó V</div><div id="k1" class="value">0</div><div class="submetric">Llegó plan real y NO usó V</div></div>
     <div class="card kpi" onclick="showDetail('ganado_usado')"><div class="title">✅ Ganó y usó V</div><div id="k2" class="value">0</div><div class="submetric">Beneficio usado</div></div>
     <div class="card kpi" onclick="showDetail('cerca')"><div class="title">🟡 Cerca de ganar</div><div id="k3" class="value">0</div><div id="k3s" class="submetric">Suf. S/ 0 | PVTA S/ 0</div></div>
     <div class="card kpi" onclick="showDetail('lejos')"><div class="title">🔴 Lejos</div><div id="k4" class="value">0</div><div id="k4s" class="submetric">Suf. S/ 0 | PVTA S/ 0</div></div>
@@ -186,27 +186,29 @@ function quotaBounds(){let mn=parseFloat(quotaMin.value),mx=parseFloat(quotaMax.
 function suficiencia(x){return Math.max(0,Number(x.gap||0))} function pvtaCover(x){return Math.max(0,Number(x.pvta||0))} function gapNeto(x){return Math.max(0,suficiencia(x)-pvtaCover(x))}
 
 function llegoPlan(x){
+  if(x && x.won===true) return true;
   const cuota = Number(x.cuota||0);
   const avance = Number(x.avance||0);
-  const gap = Number(x.gap||0);
   const pctv = Number(x.pct||0);
   if(cuota <= 0) return false;
-  return pctv >= 1 || avance >= cuota || gap <= 0;
+  return pctv >= 1 || avance >= cuota;
 }
 
 function classify(x){
   let b=nearBounds();
   let l=llegoPlan(x);
-  if(l && !x.uso_v) return 'ganado_no_usado';
-  if(l && x.uso_v) return 'ganado_usado';
+  const uso = (x.uso_v===true || x.uso_v==='SI');
+  if(l && !uso) return 'ganado_no_usado';
+  if(l && uso) return 'ganado_usado';
   if(!l && x.pct>=b.mn && x.pct<=b.mx) return 'cerca';
   return 'lejos';
 }
 function classifyRow(r){
   let b=nearBounds();
   let l=llegoPlan(r);
-  if(l && r.uso_v==='NO') return 'ganado_no_usado';
-  if(l && r.uso_v==='SI') return 'ganado_usado';
+  const uso = (r.uso_v===true || r.uso_v==='SI');
+  if(l && !uso) return 'ganado_no_usado';
+  if(l && uso) return 'ganado_usado';
   if(!l && r.pct>=b.mn && r.pct<=b.mx) return 'cerca';
   return 'lejos';
 }
@@ -218,12 +220,44 @@ function refreshFilters(changed){
   const v=fVend.value||'Todos'; let bd=bv.filter(x=>v==='Todos'||x.vendedor===v); fill('fDia',bd.map(x=>x.dia),changed!=='sede'&&changed!=='grupo'&&changed!=='vend');
 }
 function getRows(){const qb=quotaBounds(),s=fSede.value,g=fGrupo.value,v=fVend.value,d=fDia.value,q=fSearch.value.toLowerCase().trim();return DATA.filter(x=>(s==='Todos'||x.sede===s)&&(g==='Todos'||x.grupo===g)&&(v==='Todos'||x.vendedor===v)&&(d==='Todos'||x.dia===d)&&x.cuota>=qb.mn&&x.cuota<=qb.mx&&(!q||String(x.cliente).toLowerCase().includes(q)||String(x.nombre).toLowerCase().includes(q)))}
-function buildClients(rows){const m=new Map();rows.forEach(r=>{const key=r.cliente||r.nombre+'|'+r.sede;if(!m.has(key))m.set(key,{cliente:r.cliente,nombre:r.nombre,sede:r.sede,grupo:new Set(),vendedor:new Set(),dia:new Set(),cuota:0,avance:0,gap:999999999,pct:0,pvta:0,uso_v:false});const x=m.get(key);x.grupo.add(r.grupo);x.vendedor.add(r.vendedor);x.dia.add(r.dia);x.cuota=Math.max(x.cuota,r.cuota);x.avance=Math.max(x.avance,r.avance);x.gap=Math.min(x.gap,r.gap);x.pct=Math.max(x.pct,r.pct);x.pvta+=r.pvta;x.uso_v=x.uso_v||r.uso_v==='SI'});return Array.from(m.values()).map(x=>{
-  const gapCalc = Math.max(0, Number(x.cuota||0)-Number(x.avance||0));
-  const gapFinal = x.gap===999999999 ? gapCalc : Math.min(Number(x.gap||0), gapCalc);
-  const pctFinal = x.pct || (x.cuota ? x.avance/x.cuota : 0);
-  return {...x,grupo:[...x.grupo].filter(Boolean).join(', '),vendedor:[...x.vendedor].filter(Boolean).join(', '),dia:[...x.dia].filter(Boolean).join(', '),gap:gapFinal,pct:pctFinal};
-})}
+function buildClients(rows){
+  const m=new Map();
+  rows.forEach(r=>{
+    const key=r.cliente||r.nombre+'|'+r.sede;
+    if(!m.has(key)){
+      m.set(key,{
+        cliente:r.cliente,nombre:r.nombre,sede:r.sede,
+        grupo:new Set(),vendedor:new Set(),dia:new Set(),
+        cuota:0,avance:0,gap:999999999,pct:0,pvta:0,
+        uso_v:false,won:false
+      });
+    }
+    const x=m.get(key);
+    x.grupo.add(r.grupo);
+    x.vendedor.add(r.vendedor);
+    x.dia.add(r.dia);
+    x.cuota=Math.max(x.cuota,Number(r.cuota||0));
+    x.avance=Math.max(x.avance,Number(r.avance||0));
+    x.gap=Math.min(x.gap,Number(r.gap||999999999));
+    x.pct=Math.max(x.pct,Number(r.pct||0));
+    x.pvta+=Number(r.pvta||0);
+    x.uso_v=x.uso_v||r.uso_v==='SI'||r.uso_v===true;
+    x.won=x.won||llegoPlan(r);
+  });
+  return Array.from(m.values()).map(x=>{
+    const gapCalc=Math.max(0,Number(x.cuota||0)-Number(x.avance||0));
+    const gapFinal=x.gap===999999999?gapCalc:Math.min(Number(x.gap||0),gapCalc);
+    const pctFinal=x.pct||(x.cuota?x.avance/x.cuota:0);
+    return {
+      ...x,
+      grupo:[...x.grupo].filter(Boolean).join(', '),
+      vendedor:[...x.vendedor].filter(Boolean).join(', '),
+      dia:[...x.dia].filter(Boolean).join(', '),
+      gap:gapFinal,
+      pct:pctFinal
+    };
+  });
+}
 function rowObjects(rows){return rows.map(r=>({...r,uso_v:r.uso_v==='SI'}))}
 function newAgg(name){return{name,total:0,opp:0,used:0,cerca:0,lejos:0,sufCerca:0,pvtaCerca:0,netoCerca:0,sufLejos:0,pvtaLejos:0,netoLejos:0}}
 function addAgg(a,cl,s,p){a.total++;if(cl==='ganado_no_usado')a.opp++;if(cl==='ganado_usado')a.used++;if(cl==='cerca'){a.cerca++;a.sufCerca+=s;a.pvtaCerca+=p;a.netoCerca+=Math.max(0,s-p)}if(cl==='lejos'){a.lejos++;a.sufLejos+=s;a.pvtaLejos+=p;a.netoLejos+=Math.max(0,s-p)}}
