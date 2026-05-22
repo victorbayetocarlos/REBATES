@@ -33,8 +33,8 @@
     <div class="kpis">
       <div class="kpi red" onclick="focusType('ganado_no_usado')"><div class="label">Ganó y no usó V</div><div id="kOpp" class="val">0</div><div class="sub">venta incremental</div></div>
       <div class="kpi orange" onclick="focusType('cerca')"><div class="label">Cerca de ganar</div><div id="kCerca" class="val">0</div><div class="sub">cierre inmediato</div></div>
-      <div class="kpi green"><div class="label">PVTA oportunidad</div><div id="kPvta" class="val">S/0</div><div class="sub">sobre oportunidades</div></div>
-      <div class="kpi blue"><div class="label">Clientes únicos</div><div id="kClientes" class="val">0</div><div class="sub">filtrados</div></div>
+      <div class="kpi green"><div class="label">Soles oportunidad</div><div id="kSolesOpp" class="val">S/0</div><div id="kPvta" class="sub">PVTA oportunidad: S/0</div></div>
+      <div class="kpi blue"><div class="label">Clientes únicos</div><div id="kClientes" class="val">0</div><div id="kClientesSub" class="sub">Oportunidad: S/0</div></div>
     </div>
     <div class="grid"><div class="card"><h2>Ranking Supervisor</h2><div id="rankSupervisor"></div></div><div class="card"><h2>Ranking Vendedor</h2><div id="rankVendedor"></div></div></div>
   </section>
@@ -69,6 +69,112 @@ function setTab(id,el){document.querySelectorAll('section').forEach(s=>s.classLi
 async function loadData(){status.textContent='Cargando reembolsos.csv...';const res=await fetch('reembolsos.csv?v='+Date.now(),{cache:'no-store'});const txt=await res.text();let p=Papa.parse(txt,{header:true,skipEmptyLines:true,delimitersToGuess:[',',';','\t','|']});if(p.meta.fields.length<=1)p=Papa.parse(txt,{header:true,skipEmptyLines:true,delimiter:';'});DATA=p.data.map(mapRow).filter(x=>x.cliente||x.nombre);status.textContent=`Actualizado: ${DATA.length.toLocaleString('es-PE')} filas`;fillSelect('fSupervisor',DATA.map(x=>x.supervisor));fillSelect('fVendedor',DATA.map(x=>x.vendedor));fillSelect('fDia',DATA.map(x=>x.dia));applyFilters()}
 
 </script>
+
+<script>
+/* ===== AJUSTES KPI / RANKING / WHATSAPP - VERSION SUPERVISOR ===== */
+function isOppType(t){ return t==='ganado_no_usado' || t==='cerca'; }
+function solesOportunidad(x){
+  const t = typeOf(x);
+  if(t==='cerca' || t==='lejos') return Math.max(0, Number(x.gap||0));
+  if(t==='ganado_no_usado') return Math.max(0, Number(x.pvta||0));
+  return 0;
+}
+function pvtaOportunidad(x){
+  const t = typeOf(x);
+  if(t==='ganado_no_usado' || t==='cerca') return Math.max(0, Number(x.pvta||0));
+  return 0;
+}
+function cerradoHoy(x){ return won(x); }
+
+function render(){
+  let opp = CLIENTS.filter(x=>typeOf(x)==='ganado_no_usado');
+  let cerca = CLIENTS.filter(x=>typeOf(x)==='cerca');
+  let oportunidades = CLIENTS.filter(x=>isOppType(typeOf(x)));
+  const solesOpp = oportunidades.reduce((a,b)=>a+solesOportunidad(b),0);
+  const pvtaOpp = oportunidades.reduce((a,b)=>a+pvtaOportunidad(b),0);
+
+  kOpp.textContent = opp.length.toLocaleString('es-PE');
+  kCerca.textContent = cerca.length.toLocaleString('es-PE');
+  kClientes.textContent = CLIENTS.length.toLocaleString('es-PE');
+
+  const kSoles = document.getElementById('kSolesOpp');
+  if(kSoles) kSoles.textContent = money(solesOpp);
+  const kPv = document.getElementById('kPvta');
+  if(kPv) kPv.textContent = 'PVTA oportunidad: ' + money(pvtaOpp);
+  const kCliSub = document.getElementById('kClientesSub');
+  if(kCliSub) kCliSub.textContent = 'Oportunidad: ' + money(solesOpp);
+
+  renderRank('rankSupervisor','supervisor');
+  renderRank('rankVendedor','vendedor');
+  renderClients();
+  renderWhats();
+}
+function renderRank(id,key){
+  let m={};
+  CLIENTS.forEach(x=>{
+    String(x[key]||'Sin dato').split(',').map(z=>z.trim()).filter(Boolean).forEach(k=>{
+      if(!m[k]) m[k]={n:k,opp:0,cerca:0,pvta:0,suf:0,total:0,cerrados:0};
+      let t=typeOf(x);
+      m[k].total++;
+      if(cerradoHoy(x)) m[k].cerrados++;
+      if(t==='ganado_no_usado') m[k].opp++;
+      if(t==='cerca') m[k].cerca++;
+      if(isOppType(t)){
+        m[k].suf += solesOportunidad(x);
+        m[k].pvta += pvtaOportunidad(x);
+      }
+    });
+  });
+  const el = document.getElementById(id);
+  if(!el) return;
+  el.innerHTML = Object.values(m)
+    .sort((a,b)=>b.suf-a.suf || b.opp-a.opp || b.cerca-a.cerca)
+    .slice(0,12)
+    .map(x=>`<div class="rankItem">
+      <div>
+        <div class="rankName">${x.n}</div>
+        <div class="rankMeta">🔥 ${x.opp} | ⚠️ ${x.cerca} | ✅ cerraron ${x.cerrados}/${x.total}</div>
+        <div class="rankMeta">Suf: ${money(x.suf)} | PVTA: ${money(x.pvta)}</div>
+      </div>
+      <div class="rankNum">${x.total}</div>
+    </div>`).join('');
+}
+function renderWhats(){
+  const grupos = {};
+  CLIENTS.filter(x=>isOppType(typeOf(x))).forEach(x=>{
+    const vend = x.vendedor || 'Sin vendedor';
+    const estado = typeOf(x)==='ganado_no_usado' ? 'GANÓ Y NO USÓ V' : 'CERCA';
+    if(!grupos[vend]) grupos[vend] = {'GANÓ Y NO USÓ V':[], 'CERCA':[]};
+    grupos[vend][estado].push(x);
+  });
+
+  let txt = '🔥 OPORTUNIDADES REBATES\n';
+  txt += 'Soles oportunidad: ' + money(CLIENTS.filter(x=>isOppType(typeOf(x))).reduce((a,b)=>a+solesOportunidad(b),0)) + '\n';
+  txt += 'PVTA oportunidad: ' + money(CLIENTS.filter(x=>isOppType(typeOf(x))).reduce((a,b)=>a+pvtaOportunidad(b),0)) + '\n\n';
+
+  Object.keys(grupos).sort().slice(0,20).forEach(v=>{
+    txt += '👤 VENDEDOR ' + v + '\n';
+    ['GANÓ Y NO USÓ V','CERCA'].forEach(est=>{
+      const arr = grupos[v][est].sort((a,b)=>solesOportunidad(b)-solesOportunidad(a)).slice(0,8);
+      if(arr.length){
+        txt += '\n' + (est==='GANÓ Y NO USÓ V' ? '🔥 ' : '⚠️ ') + est + '\n';
+        arr.forEach(c=>{
+          txt += `${c.cliente} - ${c.nombre}\n`;
+          txt += `Suf: ${money(solesOportunidad(c))} | PVTA: ${money(pvtaOportunidad(c))} | Gap: ${money(c.gap)}\n`;
+        });
+      }
+    });
+    txt += '\n';
+  });
+  const el = document.getElementById('whatsText');
+  if(el) el.textContent = txt.trim();
+}
+function clientText(x){
+  return `📌 ${x.cliente} - ${x.nombre}\nVend: ${x.vendedor||'-'} | Día: ${x.dia||'-'}\nCuota: ${money(x.cuota)} | Avance: ${money(x.avance)}\nSuf: ${money(solesOportunidad(x))} | PVTA: ${money(pvtaOportunidad(x))}\nGap: ${money(x.gap)}\nEstado: ${typeOf(x).replaceAll('_',' ')}`;
+}
+/* ===== FIN AJUSTES ===== */
+</script>
+
 <script>
 /* ===== PATCH CARGA ROBUSTA BORRADOR SUPERVISOR ===== */
 const $id = (id) => document.getElementById(id);
