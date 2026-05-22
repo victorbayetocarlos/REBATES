@@ -32,9 +32,9 @@
   <section id="resumen">
     <div class="kpis">
       <div class="kpi red" onclick="focusType('ganado_no_usado')"><div class="label">Ganó y no usó V</div><div id="kOpp" class="val">0</div><div class="sub">venta incremental</div></div>
-      <div class="kpi orange" onclick="focusType('cerca')"><div class="label">Cerca de ganar</div><div id="kCerca" class="val">0</div><div class="sub">cierre inmediato</div></div>
+      <div class="kpi orange" onclick="focusType('cerca')"><div class="label">Cerca de ganar</div><div id="kCerca" class="val">0</div><div class="sub">desde 60% avance</div></div>
       <div class="kpi green"><div class="label">Soles oportunidad</div><div id="kSolesOpp" class="val">S/0</div><div id="kPvta" class="sub">PVTA oportunidad: S/0</div></div>
-      <div class="kpi blue"><div class="label">Clientes únicos</div><div id="kClientes" class="val">0</div><div id="kClientesSub" class="sub">Oportunidad: S/0</div></div>
+      <div class="kpi blue"><div class="label">Clientes únicos</div><div id="kClientes" class="val">0</div><div id="kClientesSub" class="sub">Oportunidad total gap: S/0</div></div>
     </div>
     <div class="grid"><div class="card"><h2>Ranking Supervisor</h2><div id="rankSupervisor"></div></div><div class="card"><h2>Ranking Vendedor</h2><div id="rankVendedor"></div></div></div>
   </section>
@@ -173,6 +173,148 @@ function clientText(x){
   return `📌 ${x.cliente} - ${x.nombre}\nVend: ${x.vendedor||'-'} | Día: ${x.dia||'-'}\nCuota: ${money(x.cuota)} | Avance: ${money(x.avance)}\nSuf: ${money(solesOportunidad(x))} | PVTA: ${money(pvtaOportunidad(x))}\nGap: ${money(x.gap)}\nEstado: ${typeOf(x).replaceAll('_',' ')}`;
 }
 /* ===== FIN AJUSTES ===== */
+</script>
+
+
+<script>
+/* ===== AJUSTES 2: CERRAR CON PVTA, CERCA >=60%, WHATSAPP LIMPIO ===== */
+function isOppType(t){ return t==='ganado_no_usado' || t==='cerca'; }
+
+function sufCliente(x){
+  return Math.max(0, Number(x.gap||0));
+}
+
+function solesOportunidad(x){
+  // En ficha clientes únicos: oportunidad de soles = todo el gap pendiente.
+  return sufCliente(x);
+}
+
+function pvtaOportunidad(x){
+  const t = typeOf(x);
+  if(t==='ganado_no_usado' || t==='cerca') return Math.max(0, Number(x.pvta||0));
+  return 0;
+}
+
+function cerradoHoy(x){
+  // Cerró hoy o con preventa: si ya ganó, o si la PVTA cubre la suficiencia pendiente.
+  if(won(x)) return true;
+  const suf = sufCliente(x);
+  return suf>0 && Number(x.pvta||0) >= suf;
+}
+
+function typeOf(x){
+  const w = won(x);
+  const u = x.uso_v==='SI';
+  if(w && !u) return 'ganado_no_usado';
+  if(w && u) return 'ganado_usado';
+  // Default cerca: clientes que aún no llegaron y están >=60% avance.
+  if(!w && Number(x.pct||0) >= 0.60) return 'cerca';
+  return 'lejos';
+}
+
+function nombreCorto(nombre){
+  const clean = String(nombre||'').replace(/[.,]/g,' ').replace(/\s+/g,' ').trim();
+  if(!clean) return '';
+  const parts = clean.split(' ').filter(Boolean);
+  // quedarse con 2 apellidos / primeras dos palabras del nombre comercial.
+  return parts.slice(0,2).join(' ');
+}
+
+function render(){
+  let opp = CLIENTS.filter(x=>typeOf(x)==='ganado_no_usado');
+  let cerca = CLIENTS.filter(x=>typeOf(x)==='cerca');
+  let oportunidades = CLIENTS.filter(x=>isOppType(typeOf(x)));
+  const solesOpp = CLIENTS.reduce((a,b)=>a+solesOportunidad(b),0); // todo el gap
+  const pvtaOpp = oportunidades.reduce((a,b)=>a+pvtaOportunidad(b),0);
+
+  kOpp.textContent = opp.length.toLocaleString('es-PE');
+  kCerca.textContent = cerca.length.toLocaleString('es-PE');
+  kClientes.textContent = CLIENTS.length.toLocaleString('es-PE');
+
+  const kSoles = document.getElementById('kSolesOpp');
+  if(kSoles) kSoles.textContent = money(solesOpp);
+  const kPv = document.getElementById('kPvta');
+  if(kPv) kPv.textContent = 'PVTA oportunidad: ' + money(pvtaOpp);
+  const kCliSub = document.getElementById('kClientesSub');
+  if(kCliSub) kCliSub.textContent = 'Oportunidad total gap: ' + money(solesOpp);
+
+  renderRank('rankSupervisor','supervisor');
+  renderRank('rankVendedor','vendedor');
+  renderClients();
+  renderWhats();
+}
+
+function renderRank(id,key){
+  let m={};
+  CLIENTS.forEach(x=>{
+    String(x[key]||'Sin dato').split(',').map(z=>z.trim()).filter(Boolean).forEach(k=>{
+      if(!m[k]) m[k]={n:k,opp:0,cerca:0,pvta:0,suf:0,total:0,cerrados:0};
+      let t=typeOf(x);
+      m[k].total++;
+      if(cerradoHoy(x)) m[k].cerrados++;
+      if(t==='ganado_no_usado') m[k].opp++;
+      if(t==='cerca') m[k].cerca++;
+      if(isOppType(t)){
+        m[k].suf += sufCliente(x);
+        m[k].pvta += pvtaOportunidad(x);
+      }
+    });
+  });
+  const el = document.getElementById(id);
+  if(!el) return;
+  el.innerHTML = Object.values(m)
+    .sort((a,b)=>b.suf-a.suf || b.cerrados-a.cerrados || b.opp-a.opp || b.cerca-a.cerca)
+    .slice(0,12)
+    .map(x=>`<div class="rankItem">
+      <div>
+        <div class="rankName">${x.n}</div>
+        <div class="rankMeta">🔥 ${x.opp} | ⚠️ ${x.cerca} | ✅ cerraron hoy ${x.cerrados}/${x.total}</div>
+        <div class="rankMeta">Suf: ${money(x.suf)} | PVTA: ${money(x.pvta)}</div>
+      </div>
+      <div class="rankNum">${x.total}</div>
+    </div>`).join('');
+}
+
+function clientText(x){
+  const t = typeOf(x);
+  const llego = (t==='cerca' && cerradoHoy(x)) ? ' | LLEGÓ con PVTA' : '';
+  return `📌 ${x.cliente} - ${nombreCorto(x.nombre)}\nVend: ${x.vendedor||'-'} | Día: ${x.dia||'-'}\nSuf: ${money(sufCliente(x))} | PVTA: ${money(pvtaOportunidad(x))}${llego}\nEstado: ${t.replaceAll('_',' ')}`;
+}
+
+function renderWhats(){
+  const grupos = {};
+  CLIENTS.filter(x=>isOppType(typeOf(x))).forEach(x=>{
+    const vend = x.vendedor || 'Sin vendedor';
+    const estado = typeOf(x)==='ganado_no_usado' ? 'GANÓ Y NO USÓ V' : 'CERCA';
+    if(!grupos[vend]) grupos[vend] = {'GANÓ Y NO USÓ V':[], 'CERCA':[]};
+    grupos[vend][estado].push(x);
+  });
+
+  let txt = '🔥 OPORTUNIDADES REBATES\n';
+  txt += 'Soles oportunidad total gap: ' + money(CLIENTS.reduce((a,b)=>a+sufCliente(b),0)) + '\n';
+  txt += 'PVTA oportunidad: ' + money(CLIENTS.filter(x=>isOppType(typeOf(x))).reduce((a,b)=>a+pvtaOportunidad(b),0)) + '\n\n';
+
+  Object.keys(grupos).sort().slice(0,20).forEach(v=>{
+    txt += '👤 VENDEDOR ' + v + '\n';
+
+    ['GANÓ Y NO USÓ V','CERCA'].forEach(est=>{
+      const arr = grupos[v][est].sort((a,b)=>sufCliente(b)-sufCliente(a)).slice(0,8);
+      if(arr.length){
+        txt += '\n' + (est==='GANÓ Y NO USÓ V' ? '🔥 ' : '⚠️ ') + est + '\n';
+        arr.forEach(c=>{
+          const llego = (est==='CERCA' && cerradoHoy(c)) ? ' ✅ LLEGÓ' : '';
+          txt += `${c.cliente} - ${nombreCorto(c.nombre)}\n`;
+          txt += `Suf: ${money(sufCliente(c))} | PVTA: ${money(pvtaOportunidad(c))}${llego}\n`;
+        });
+      }
+    });
+    txt += '\n';
+  });
+
+  const el = document.getElementById('whatsText');
+  if(el) el.textContent = txt.trim();
+}
+/* ===== FIN AJUSTES 2 ===== */
 </script>
 
 <script>
