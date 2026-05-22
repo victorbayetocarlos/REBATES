@@ -62,7 +62,7 @@
     <div class="card">
       <h2>Gestión del Día por vendedor</h2>
       <div class="status">Cerraron hoy = clientes no cerrados inicialmente donde PVTA >= gap inicial.</div>
-      <div id="gestionList" class="dayList" style="margin-top:10px"></div>
+      <div id="gestionList" class="dayList" style="margin-top:10px"></div><button class="btn footerBtn" onclick="copyGestionDia()">📲 Copiar todos a WhatsApp</button>
     </div>
   </section>
 
@@ -491,4 +491,62 @@ window.addEventListener('DOMContentLoaded', () => {
 });
 /* ===== FIN PATCH ===== */
 </script>
+
+<script>
+/* ===== EXPORTAR GESTION DIA A WHATSAPP ===== */
+function emojiSemaforo(r){
+  if(r>=0.60) return '🟢';
+  if(r>=0.30) return '🟠';
+  return '🔴';
+}
+
+async function copyGestionDia(){
+  const m = {};
+
+  CLIENTS.forEach(x=>{
+    String(x.vendedor||'Sin vendedor')
+      .split(',')
+      .map(v=>v.trim())
+      .filter(Boolean)
+      .forEach(v=>{
+        if(!m[v]) m[v]={vendedor:v,cerca:0,general:0,cerrCerca:0,cerrGeneral:0};
+
+        if(esOportunidadCerca(x)){
+          m[v].cerca++;
+          if(cerroHoyReal(x)) m[v].cerrCerca++;
+        }
+
+        if(esOportunidadGeneral(x)){
+          m[v].general++;
+          if(cerroHoyReal(x)) m[v].cerrGeneral++;
+        }
+      });
+  });
+
+  const rows = Object.values(m)
+    .filter(x=>x.general>0 || x.cerca>0)
+    .sort((a,b)=>rate(b.cerrCerca,b.cerca)-rate(a.cerrCerca,a.cerca));
+
+  let txt = '📈 GESTIÓN DEL DÍA - REBATES\n\n';
+
+  rows.forEach(x=>{
+    const rC = rate(x.cerrCerca,x.cerca);
+    const rG = rate(x.cerrGeneral,x.general);
+    const emo = emojiSemaforo(rC);
+
+    txt += `${emo} ${x.vendedor}\n`;
+    txt += `CERCA: ${x.cerrCerca}/${x.cerca} = ${Math.round(rC*100)}%\n`;
+    txt += `GENERAL: ${x.cerrGeneral}/${x.general} = ${Math.round(rG*100)}%\n\n`;
+  });
+
+  try{
+    await navigator.clipboard.writeText(txt.trim());
+    alert('Gestión del día copiada');
+  }catch(e){
+    prompt('Copia:', txt.trim());
+  }
+}
+/* ===== FIN EXPORTAR GESTION DIA ===== */
+</script>
+
 </body></html>
