@@ -178,10 +178,10 @@ function renderWhats(){
   txt += 'Soles oportunidad: ' + money(CLIENTS.filter(x=>isOppType(typeOf(x))).reduce((a,b)=>a+solesOportunidad(b),0)) + '\n';
   txt += 'PVTA oportunidad: ' + money(CLIENTS.filter(x=>isOppType(typeOf(x))).reduce((a,b)=>a+pvtaOportunidad(b),0)) + '\n\n';
 
-  Object.keys(grupos).sort().slice(0,20).forEach(v=>{
+  Object.keys(grupos).sort().forEach(v=>{
     txt += '👤 VENDEDOR ' + v + '\n';
     ['GANÓ Y NO USÓ V','CERCA'].forEach(est=>{
-      const arr = grupos[v][est].sort((a,b)=>solesOportunidad(b)-solesOportunidad(a)).slice(0,8);
+      const arr = grupos[v][est].sort((a,b)=>solesOportunidad(b)-solesOportunidad(a));
       if(arr.length){
         txt += '\n' + (est==='GANÓ Y NO USÓ V' ? '🔥 ' : '⚠️ ') + est + '\n';
         arr.forEach(c=>{
@@ -320,11 +320,11 @@ function renderWhats(){
   txt += 'Soles oportunidad total gap: ' + money(CLIENTS.reduce((a,b)=>a+sufCliente(b),0)) + '\n';
   txt += 'PVTA oportunidad: ' + money(CLIENTS.filter(x=>isOppType(typeOf(x))).reduce((a,b)=>a+pvtaOportunidad(b),0)) + '\n\n';
 
-  Object.keys(grupos).sort().slice(0,20).forEach(v=>{
+  Object.keys(grupos).sort().forEach(v=>{
     txt += '👤 VENDEDOR ' + v + '\n';
 
     ['GANÓ Y NO USÓ V','CERCA'].forEach(est=>{
-      const arr = grupos[v][est].sort((a,b)=>sufCliente(b)-sufCliente(a)).slice(0,8);
+      const arr = grupos[v][est].sort((a,b)=>sufCliente(b)-sufCliente(a));
       if(arr.length){
         txt += '\n' + (est==='GANÓ Y NO USÓ V' ? '🔥 ' : '⚠️ ') + est + '\n';
         arr.forEach(c=>{
