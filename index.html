@@ -49,7 +49,7 @@
   <section id="resumen">
     <div class="kpis">
       <div class="kpi red" onclick="focusType('ganado_no_usado')"><div class="label">Ganó y no usó V</div><div id="kOpp" class="val">0</div><div class="sub">venta incremental</div></div>
-      <div class="kpi orange" onclick="focusType('cerca')"><div class="label">Cerca de ganar</div><div id="kCerca" class="val">0</div><div class="sub">desde 60% avance</div></div>
+      <div class="kpi orange" onclick="focusType('cerca')"><div class="label">Cerca de ganar</div><div id="kCerca" class="val">0</div><div class="sub">desde 50% avance</div></div>
       <div class="kpi green"><div class="label">Soles oportunidad</div><div id="kSolesOpp" class="val">S/0</div><div id="kPvta" class="sub">PVTA oportunidad: S/0</div></div>
       <div class="kpi blue"><div class="label">Clientes únicos</div><div id="kClientes" class="val">0</div><div id="kClientesSub" class="sub">Oportunidad total gap: S/0</div></div>
     </div>
@@ -224,7 +224,7 @@ function clientText(x){
 
 
 <script>
-/* ===== AJUSTES 2: CERRAR CON PVTA, CERCA >=60%, WHATSAPP LIMPIO ===== */
+/* ===== AJUSTES 2: CERRAR CON PVTA, CERCA >=50%, WHATSAPP LIMPIO ===== */
 function isOppType(t){ return t==='ganado_no_usado' || t==='cerca'; }
 
 function sufCliente(x){
@@ -254,8 +254,8 @@ function typeOf(x){
   const u = x.uso_v==='SI';
   if(w && !u) return 'ganado_no_usado';
   if(w && u) return 'ganado_usado';
-  // Default cerca: clientes que aún no llegaron y están >=60% avance.
-  if(!w && Number(x.pct||0) >= 0.60) return 'cerca';
+  // Default cerca: clientes que aún no llegaron y están >=50% avance.
+  if(!w && Number(x.pct||0) >= 0.50) return 'cerca';
   return 'lejos';
 }
 
@@ -369,7 +369,7 @@ function renderWhats(){
 /* ===== AJUSTES 3: PESTAÑA GESTIÓN DEL DÍA ===== */
 function esCerradoInicial(x){ return won(x); }
 function esOportunidadGeneral(x){ return !esCerradoInicial(x) && Number(x.gap||0)>0; }
-function esOportunidadCerca(x){ return esOportunidadGeneral(x) && Number(x.pct||0)>=0.60; }
+function esOportunidadCerca(x){ return esOportunidadGeneral(x) && Number(x.pct||0)>=0.50; }
 function cerroHoyReal(x){ return esOportunidadGeneral(x) && Number(x.pvta||0) >= Number(x.gap||0); }
 function rate(cerrados,total){ return total>0 ? cerrados/total : 0; }
 function clsBar(r){ if(r>=0.60) return 'good'; if(r>=0.30) return 'mid'; return ''; }
